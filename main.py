@@ -1,10 +1,5 @@
 """
-Domain Pack MCP Server - Main Entry Point
-
-This is a FastMCP server that provides tools for managing Domain Packs.
-It exposes MCP tools for LLM interaction with strict safety guarantees.
-
-NO business logic here - only FastMCP registration and server setup.
+Domain Pack MCP Server - Main Entry Point.
 """
 
 import sys
@@ -27,21 +22,19 @@ from db import init_database, DatabaseError
 
 
 # Create FastMCP instance
-mcp = FastMCP("Domain Pack MCP Server")
+mcp = FastMCP("Domain Pack MCP Server 🎯")
 
 
 @mcp.tool()
 def create_session(initial_content: str, file_type: str) -> Dict[str, Any]:
     """
     Create a new domain pack session.
-    
     Args:
         initial_content: YAML or JSON string containing the domain pack
         file_type: File type - must be "yaml" or "json"
         
     Returns:
         Session information including session_id
-        
     Example:
         create_session(
             initial_content="name: Legal\\ndescription: Legal domain\\nversion: 1.0.0",
@@ -57,12 +50,10 @@ def create_session(initial_content: str, file_type: str) -> Dict[str, Any]:
             "message": "Failed to create session"
         }
 
-
 @mcp.tool()
 def apply_change(session_id: str, operation: Dict[str, Any], reason: str) -> Dict[str, Any]:
     """
     Apply a single operation to a domain pack.
-    
     Args:
         session_id: Session UUID from create_session
         operation: Operation specification with action, path, and value
@@ -96,9 +87,7 @@ def apply_change(session_id: str, operation: Dict[str, Any], reason: str) -> Dic
 def apply_batch(session_id: str, operations: List[Dict[str, Any]], reason: str) -> Dict[str, Any]:
     """
     Apply multiple operations atomically to a domain pack.
-    
     All operations succeed or all fail - no partial updates.
-    
     Args:
         session_id: Session UUID from create_session
         operations: List of operation specifications
@@ -131,10 +120,8 @@ def apply_batch(session_id: str, operations: List[Dict[str, Any]], reason: str) 
 def rollback(session_id: str, target_version: int) -> Dict[str, Any]:
     """
     Rollback to a previous version.
-    
     Creates a new version with content from target_version.
     Never deletes history - rollback is a new version.
-    
     Args:
         session_id: Session UUID from create_session
         target_version: Version number to rollback to
@@ -162,12 +149,10 @@ def rollback(session_id: str, target_version: int) -> Dict[str, Any]:
 def export_domain_pack(session_id: str, file_type: str, version: int = None) -> Dict[str, Any]:
     """
     Export domain pack as YAML or JSON.
-    
     Args:
         session_id: Session UUID from create_session
         file_type: Output format - "yaml" or "json"
         version: Optional version number (default: latest)
-        
     Returns:
         Domain pack content as string
         
@@ -191,7 +176,6 @@ def export_domain_pack(session_id: str, file_type: str, version: int = None) -> 
 def get_session_info(session_id: str) -> Dict[str, Any]:
     """
     Get session information and version history.
-    
     Args:
         session_id: Session UUID from create_session
         
@@ -217,11 +201,11 @@ def main():
     Initializes database and runs the MCP server.
     """
     try:
-        print("Initializing database...", file=sys.stderr)
+        print("DB: Initializing database.", file=sys.stderr)
         init_database()
-        print("Database initialized successfully", file=sys.stderr)
+        print("DB: Database initialized successfully.", file=sys.stderr)
 
-        print("Starting Domain Pack MCP Server (HTTP)...", file=sys.stderr)
+        print("SERVER: Starting Domain Pack MCP Server", file=sys.stderr)
         mcp.run()
 
     except DatabaseError as e:

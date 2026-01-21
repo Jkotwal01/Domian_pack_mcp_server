@@ -239,7 +239,7 @@ DOMAIN_PACK_SCHEMA = {
             }
         },
         
-        # Section 12: Question Templates
+        # Section 12: Question Templates //////////////////// Focus in future work
         "question_templates": {
             "type": "object",
             "additionalProperties": {
@@ -323,15 +323,13 @@ class DomainPackValidator:
     """
     
     def __init__(self):
-        self.validator = jsonschema.Draft7Validator(DOMAIN_PACK_SCHEMA)
+        self.validator = jsonschema.Draft7Validator(DOMAIN_PACK_SCHEMA) # It prepares a validator object that can check whether JSON data matches a predefined schema against the DOMAIN_PACK_SCHEMA.
     
     def validate(self, data: Dict[str, Any]) -> None:
         """
         Validate domain pack data against schema.
-        
         Args:
             data: Domain pack data as dictionary
-            
         Raises:
             jsonschema.ValidationError: If validation fails
             ValueError: If data is None or not a dict
@@ -355,10 +353,8 @@ class DomainPackValidator:
     def is_valid(self, data: Dict[str, Any]) -> bool:
         """
         Check if domain pack data is valid without raising exception.
-        
         Args:
             data: Domain pack data as dictionary
-            
         Returns:
             True if valid, False otherwise
         """
@@ -371,7 +367,6 @@ class DomainPackValidator:
     def get_errors(self, data: Dict[str, Any]) -> list:
         """
         Get all validation errors for the data.
-        
         Args:
             data: Domain pack data as dictionary
             
@@ -403,7 +398,6 @@ def validate_domain_pack(data: Dict[str, Any]) -> None:
     
     Args:
         data: Domain pack data as dictionary
-        
     Raises:
         jsonschema.ValidationError: If validation fails
         ValueError: If data is invalid

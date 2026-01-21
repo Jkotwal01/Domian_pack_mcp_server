@@ -43,16 +43,14 @@ def create_session_tool(initial_content: str, file_type: str) -> Dict[str, Any]:
     
     Args:
         initial_content: YAML or JSON string
-        file_type: "yaml" or "json"
-        
+        file_type: "yaml" or "json"  
     Returns:
         {
             "success": true,
             "session_id": "uuid",
             "version": 1,
             "message": "Session created successfully"
-        }
-        
+        } 
     Raises:
         ToolError: If creation fails
     """
@@ -89,14 +87,13 @@ def apply_change_tool(session_id: str, operation: Dict[str, Any], reason: str) -
     5. Validate result schema
     6. Calculate diff
     7. Store new version
-    
+
     If ANY step fails, abort without writing to DB.
     
     Args:
         session_id: Session UUID
         operation: Operation specification
         reason: Human-readable reason for change
-        
     Returns:
         {
             "success": true,
@@ -113,19 +110,19 @@ def apply_change_tool(session_id: str, operation: Dict[str, Any], reason: str) -
         # Step 1: Get latest version
         try:
             latest = get_latest_version(session_id)
-            old_data = latest["content"]
+            old_data = latest["content"] # get file data 
         except SessionNotFoundError as e:
             raise ToolError(f"Session not found: {session_id}")
         
         # Step 2: Validate current schema
         try:
-            validate_domain_pack(old_data)
+            validate_domain_pack(old_data) # validation for Uploaded file 
         except Exception as e:
             raise ToolError(f"Current version has invalid schema: {str(e)}")
         
         # Step 3: Apply operation
         try:
-            new_data = apply_operation(old_data, operation)
+            new_data = apply_operation(old_data, operation) # apply Operation on file after the proper confirmation through the user.
         except OperationError as e:
             raise ToolError(f"Operation failed: {str(e)}")
         
@@ -161,12 +158,10 @@ def apply_change_tool(session_id: str, operation: Dict[str, Any], reason: str) -
 def apply_batch_tool(session_id: str, operations: List[Dict[str, Any]], reason: str) -> Dict[str, Any]:
     """
     Apply multiple operations atomically.
-    
     Args:
         session_id: Session UUID
         operations: List of operations
         reason: Human-readable reason for changes
-        
     Returns:
         {
             "success": true,
@@ -176,14 +171,13 @@ def apply_batch_tool(session_id: str, operations: List[Dict[str, Any]], reason: 
             "operations_count": 5,
             "message": "Batch applied successfully"
         }
-        
     Raises:
         ToolError: If any operation fails
     """
     try:
         # Step 1: Get latest version
         try:
-            latest = get_latest_version(session_id)
+            latest = get_latest_version(session_id) # Get the top wali file like stack data structure.
             old_data = latest["content"]
         except SessionNotFoundError:
             raise ToolError(f"Session not found: {session_id}")
@@ -240,7 +234,6 @@ def rollback_tool(session_id: str, target_version: int) -> Dict[str, Any]:
     Args:
         session_id: Session UUID
         target_version: Version number to rollback to
-        
     Returns:
         {
             "success": true,

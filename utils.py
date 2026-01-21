@@ -28,7 +28,7 @@ class SerializationError(Exception):
 # Configure ruamel.yaml for formatting preservation
 yaml = YAML()
 yaml.preserve_quotes = True
-yaml.default_flow_style = False
+yaml.default_flow_style = False # Forces block style instead of flow style
 yaml.width = 4096  # Prevent line wrapping
 
 
@@ -101,8 +101,15 @@ def serialize_yaml(data: Dict[str, Any]) -> str:
         raise SerializationError(f"Data must be a dictionary, got {type(data).__name__}")
     
     try:
-        stream = StringIO()
-        yaml.dump(data, stream)
+        stream = StringIO() 
+        """Creates an in-memory file-like object
+            Behaves like a writable text file
+            No disk I/O involved
+            Ideal for:
+            Capturing output as a string
+            Returning serialized content
+            Testing or further processing"""
+        yaml.dump(data, stream) # Converts the Python object data into YAML format and writes it to the stream.
         return stream.getvalue()
     except Exception as e:
         raise SerializationError(f"Failed to serialize to YAML: {str(e)}")
@@ -218,18 +225,84 @@ def calculate_diff(old_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[s
     }
     
     # Extract changes
+    """ What this captures
+        Keys that exist in new_data but not in old_data
+        Example:
+        old = {"a": 1}
+        new = {"a": 1, "b": 2}
+
+        Result:
+        "added": {
+        "root['b']": 2
+        }
+        Why str(k):
+        DeepDiff paths are special objects (e.g., root['a']['b'])
+        Converting to string makes them:
+            Serializable
+            Human-readable"""
     if "dictionary_item_added" in diff:
         result["added"] = {str(k): v for k, v in diff["dictionary_item_added"].items()}
     
+        """
+        What this captures
+        Keys that existed in old_data but are missing in new_data
+        Example:
+        old = {"a": 1, "b": 2}
+        new = {"a": 1}
+
+        Result:
+        "removed": {
+        "root['b']": 2
+        }
+        """
     if "dictionary_item_removed" in diff:
         result["removed"] = {str(k): v for k, v in diff["dictionary_item_removed"].items()}
     
+    """
+    What this captures:
+        Same key/path
+        Same type
+        Different value
+        Example:
+        old = {"a": 1}
+        new = {"a": 2}
+
+        Result:
+        "changed": {
+        "root['a']": {
+            "old": 1,
+            "new": 2
+        }
+        }
+        This is the most common diff type.
+        """
     if "values_changed" in diff:
         result["changed"] = {
             str(k): {"old": v["old_value"], "new": v["new_value"]}
             for k, v in diff["values_changed"].items()
         }
     
+
+    """What this captures:
+        Same path
+        Different data types
+        Example:
+        old = {"a": "1"}
+        new = {"a": 1}
+
+        Result:
+        "type_changes": {
+        "root['a']": {
+            "old_type": "<class 'str'>",
+            "new_type": "<class 'int'>",
+            "old_value": "1",
+            "new_value": 1
+        }
+        }
+        Why stringify types
+        Python types are not JSON-serializable
+        str(v["old_type"]) produces readable output
+        """
     if "type_changes" in diff:
         result["type_changes"] = {
             str(k): {

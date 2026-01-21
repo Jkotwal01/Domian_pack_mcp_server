@@ -160,7 +160,7 @@ def create_session(initial_content: Dict[str, Any], file_type: str, metadata: Op
     conn = None
     try:
         conn = create_connection()
-        cursor = conn.cursor()
+        cursor = conn.cursor() # It creates a cursor object from an existing database connection
         
         session_id = str(uuid.uuid4())
         
@@ -197,13 +197,10 @@ def create_session(initial_content: Dict[str, Any], file_type: str, metadata: Op
 def get_session(session_id: str) -> Dict[str, Any]:
     """
     Get session information.
-    
     Args:
         session_id: Session UUID
-        
     Returns:
         Session data including current_version and file_type
-        
     Raises:
         SessionNotFoundError: If session doesn't exist
         DatabaseError: If retrieval fails
@@ -212,6 +209,12 @@ def get_session(session_id: str) -> Dict[str, Any]:
     try:
         conn = create_connection()
         cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        """
+        A cursor is used to:
+        Execute SQL commands
+        Fetch results from the database
+        Iterate over query results
+        """
         
         cursor.execute(
             """
@@ -222,7 +225,7 @@ def get_session(session_id: str) -> Dict[str, Any]:
             (session_id,)
         )
         
-        result = cursor.fetchone()
+        result = cursor.fetchone() #fetchone() retrieves the next row of a query result set
         if not result:
             raise SessionNotFoundError(f"Session not found: {session_id}")
         
@@ -238,13 +241,10 @@ def get_session(session_id: str) -> Dict[str, Any]:
 def get_latest_version(session_id: str) -> Dict[str, Any]:
     """
     Get the latest version of a domain pack.
-    
     Args:
         session_id: Session UUID
-        
     Returns:
         Dictionary with version number and content
-        
     Raises:
         SessionNotFoundError: If session doesn't exist
         DatabaseError: If retrieval fails
@@ -306,7 +306,6 @@ def get_version(session_id: str, version: int) -> Dict[str, Any]:
             """,
             (session_id, version)
         )
-        
         result = cursor.fetchone()
         if not result:
             raise VersionNotFoundError(f"Version {version} not found for session {session_id}")
@@ -323,7 +322,6 @@ def get_version(session_id: str, version: int) -> Dict[str, Any]:
 def insert_version(session_id: str, content: Dict[str, Any], diff: Dict[str, Any], reason: str) -> int:
     """
     Insert a new version for a session.
-    
     Args:
         session_id: Session UUID
         content: Domain pack content
@@ -332,7 +330,6 @@ def insert_version(session_id: str, content: Dict[str, Any], diff: Dict[str, Any
         
     Returns:
         New version number
-        
     Raises:
         SessionNotFoundError: If session doesn't exist
         DatabaseError: If insertion fails
@@ -388,11 +385,9 @@ def insert_version(session_id: str, content: Dict[str, Any], diff: Dict[str, Any
 def list_versions(session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
     """
     List all versions for a session.
-    
     Args:
         session_id: Session UUID
         limit: Maximum number of versions to return
-        
     Returns:
         List of version metadata (without full content)
         

@@ -62,7 +62,6 @@ def _get_value_at_path(data: Dict[str, Any], path: List[str]) -> Any:
 def _set_value_at_path(data: Dict[str, Any], path: List[str], value: Any) -> None:
     """
     Set value at the specified path in the data structure (mutates data).
-    
     Args:
         data: The data structure
         path: List of keys representing the path
@@ -178,7 +177,11 @@ def op_add(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:
         OperationError: If operation fails
     """
     result = copy.deepcopy(data)
-    
+    """
+    deepcopy creates a completely independent copy of an object, 
+    including all nested objects inside it.
+
+    """
     if not path:
         raise OperationError("Cannot add at empty path")
     
@@ -302,6 +305,21 @@ def op_merge(data: Dict[str, Any], path: List[str], value: Any, strategy: str = 
         
     Raises:
         OperationError: If types don't match
+
+
+    working:
+    This function:
+        Supports safe, controlled merging
+        Works at:
+            Root level
+            Nested paths
+        Enforces:
+            Dict ↔ dict merging via update
+            List ↔ list merging via extend
+            Uses strategy to control list behavior
+        Raises clear errors for:
+            Type mismatches
+            Unsupported array strategies
     """
     result = copy.deepcopy(data)
     
