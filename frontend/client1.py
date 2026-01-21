@@ -11,7 +11,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langchain_core.messages import HumanMessage, AIMessage, ToolMessage, SystemMessage
 
 # ─────────────────────────────
-# MCP servers: local math via uv + fastmcp
+# MCP servers:  uv + fastmcp
 # ─────────────────────────────
 SERVERS = { 
     
