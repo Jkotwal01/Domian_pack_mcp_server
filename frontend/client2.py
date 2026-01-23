@@ -7,8 +7,14 @@ import json
 
 load_dotenv()
 
-SERVERS = { 
-    
+SERVERS = {
+    "Domain Pack MCP Server": {
+        "transport": "stdio",
+        "command": r"D:\My Code\Enable\domain-pack-mcp\.venv\Scripts\python.exe",
+        "args": [r"D:\My Code\Enable\domain-pack-mcp\main.py"],
+        "env": {},
+        "description": "Domain Pack MCP Server",
+    }
 }
 
 async def main():

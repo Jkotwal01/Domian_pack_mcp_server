@@ -3,8 +3,9 @@ Domain Pack MCP Server - Main Entry Point.
 """
 
 import sys
-from mcp.server.fastmcp import FastMCP
+from fastmcp import FastMCP
 from typing import Dict, Any, List
+import os
 
 # Import tools
 from tools import (
@@ -22,7 +23,7 @@ from db import init_database, DatabaseError
 
 
 # Create FastMCP instance
-mcp = FastMCP("Domain Pack MCP Server 🎯")
+mcp = FastMCP("Domain Pack MCP Server")
 
 
 @mcp.tool()

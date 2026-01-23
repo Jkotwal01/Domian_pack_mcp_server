@@ -1,0 +1,40 @@
+name: Healthcare
+description:
+  The Healthcare domain manages patient records, appointments, diagnoses,
+  treatments, medical staff, and billing information. It enables clinical workflow
+  tracking and ensures regulatory and data privacy compliance.
+version: 1.0.0
+entities:
+  - name: Patient
+    type: PATIENT
+    attributes:
+      - id
+      - name
+      - date_of_birth
+      - address
+      - phone_number
+      - email
+      - medical_history
+      - allergies
+      - insurance_provider
+      - emergency_contact
+    synonyms:
+      - individual
+      - person
+      - client
+  - name: Doctor
+    type: DOCTOR
+    attributes:
+      - id
+      - name
+      - specialty
+      - hospital_affiliation
+      - credentials
+      - experience
+      - availability
+      - schedule
+      - patient_list
+    synonyms:
+      - physician
+      - medical_doctor
+      - specialist

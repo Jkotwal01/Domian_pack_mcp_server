@@ -266,7 +266,7 @@ DOMAIN_PACK_SCHEMA = {
                             "type": "array",
                             "items": {
                                 "type": "array",
-                                "items": {"type": "string"}
+                                "items": {"type": "string"} 
                             }
                         },
                         "process_types": {
