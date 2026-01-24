@@ -1,58 +1,97 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { sendChatMessage, callMCPTool, checkHealth } from '../services/api';
 
 /**
- * Hook for integrating with MCP (Model Context Protocol) server
- * This is a mock implementation that can be replaced with actual API calls
+ * Hook for integrating with MCP (Model Context Protocol) server via backend
  */
 export const useMCPServer = () => {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState(null);
 
+  // Check backend health on mount
+  useEffect(() => {
+    checkBackendHealth();
+  }, []);
+
   /**
-   * Send a message to the MCP server and get tool calls
+   * Check if backend is healthy
+   */
+  const checkBackendHealth = async () => {
+    try {
+      const health = await checkHealth();
+      if (health.status === 'healthy') {
+        setIsConnected(true);
+        setError(null);
+      } else {
+        setIsConnected(false);
+        setError(health.error || 'Backend is not healthy');
+      }
+    } catch (err) {
+      setIsConnected(false);
+      setError(err.message);
+    }
+  };
+
+  /**
+   * Send a message to the backend/LLM and get tool calls
    * @param {string} message - The user message
-   * @param {Array} files - Optional file attachments
+   * @param {Array} files - Optional file attachments (not yet implemented in backend)
+   * @param {string|null} sessionId - Optional session ID
+   * @param {Array} conversationHistory - Previous messages
    * @returns {Promise<Object>} Response with tool calls
    */
-  const sendToMCP = async (message, files = []) => {
+  const sendToMCP = async (message, files = [], sessionId = null, conversationHistory = []) => {
     try {
-      // Mock API call - replace with actual MCP server endpoint
-      // Example: const response = await fetch('YOUR_MCP_API_ENDPOINT', { ... });
-      
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Send chat message to backend
+      const result = await sendChatMessage(message, files, sessionId, conversationHistory);
 
-      // Mock response with tool calls
-      const mockToolCalls = generateMockToolCalls(message);
+      if (!result.success) {
+        setError(result.error);
+        return {
+          success: false,
+          error: result.error,
+          toolCalls: []
+        };
+      }
 
+      setError(null);
       return {
         success: true,
-        response: `Processed your request: "${message.substring(0, 50)}..."`,
-        toolCalls: mockToolCalls
+        response: result.response,
+        sessionId: result.sessionId,
+        toolCalls: result.toolCalls || []
       };
     } catch (err) {
       setError(err.message);
       return {
         success: false,
-        error: err.message
+        error: err.message,
+        toolCalls: []
       };
     }
   };
 
   /**
-   * Execute a specific tool call
-   * @param {Object} toolCall - The tool call to execute
+   * Execute a specific MCP tool directly
+   * @param {string} toolName - Name of the tool
+   * @param {Object} args - Tool arguments
    * @returns {Promise<Object>} Tool execution result
    */
-  const executeTool = async (toolCall) => {
+  const executeTool = async (toolName, args) => {
     try {
-      // Mock tool execution - replace with actual MCP tool execution
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const result = await callMCPTool(toolName, args);
+
+      if (!result.success) {
+        return {
+          success: false,
+          error: result.error
+        };
+      }
 
       return {
         success: true,
-        output: `Tool "${toolCall.toolName}" executed successfully`,
-        data: { result: 'Mock result data' }
+        output: `Tool "${toolName}" executed successfully`,
+        data: result.result
       };
     } catch (err) {
       return {
@@ -63,22 +102,14 @@ export const useMCPServer = () => {
   };
 
   /**
-   * Connect to MCP server
+   * Connect to backend (check health)
    */
   const connect = async () => {
-    try {
-      // Mock connection - replace with actual connection logic
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setIsConnected(true);
-      setError(null);
-    } catch (err) {
-      setError(err.message);
-      setIsConnected(false);
-    }
+    await checkBackendHealth();
   };
 
   /**
-   * Disconnect from MCP server
+   * Disconnect from backend
    */
   const disconnect = () => {
     setIsConnected(false);
@@ -94,50 +125,3 @@ export const useMCPServer = () => {
   };
 };
 
-/**
- * Generate mock tool calls for demonstration
- * Replace this with actual tool call parsing from MCP server response
- */
-const generateMockToolCalls = (message) => {
-  const lowerMessage = message.toLowerCase();
-
-  // Simulate different tool calls based on message content
-  if (lowerMessage.includes('search') || lowerMessage.includes('find')) {
-    return [
-      {
-        id: Date.now(),
-        toolName: 'web_search',
-        status: 'completed',
-        input: { query: message },
-        output: { results: ['Result 1', 'Result 2', 'Result 3'] }
-      }
-    ];
-  }
-
-  if (lowerMessage.includes('calculate') || lowerMessage.includes('math')) {
-    return [
-      {
-        id: Date.now(),
-        toolName: 'calculator',
-        status: 'completed',
-        input: { expression: message },
-        output: { result: 42 }
-      }
-    ];
-  }
-
-  if (lowerMessage.includes('code') || lowerMessage.includes('program')) {
-    return [
-      {
-        id: Date.now(),
-        toolName: 'code_interpreter',
-        status: 'running',
-        input: { code: 'print("Hello, World!")' },
-        output: null
-      }
-    ];
-  }
-
-  // Default: no tool calls
-  return [];
-};

@@ -42,52 +42,68 @@ export default function Sidebar({
   };
 
   return (
-    <div
-      className={`
-                fixed inset-y-0 left-0 z-20 w-72 bg-slate-800 text-slate-100 transform transition-transform duration-300 ease-in-out
-                ${isOpen ? "translate-x-0" : "-translate-x-full"}
-                md:relative md:translate-x-0 md:w-64 lg:w-72
-                flex flex-col border-r border-slate-700
-            `}
-    >
-      {/* Header */}
-      <div className="p-4 flex items-center justify-between border-b border-slate-700/50">
-        <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
-            C
-          </div>
-          <span className="font-semibold text-lg tracking-tight">
-            Domain Pack Generator
-          </span>
-        </div>
-        {/* Mobile close */}
-        <button
+    <>
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-20 md:hidden transition-opacity"
           onClick={toggleSidebar}
-          className="md:hidden p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-white"
-        >
-          <svg
-            className="w-5 h-5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+        />
+      )}
+
+      <div
+        className={`
+            fixed inset-y-0 left-0 z-30 bg-slate-800 text-slate-100 transition-all duration-300 ease-in-out
+            md:relative border-r border-slate-700 flex flex-col
+            ${isOpen ? 'w-[280px] translate-x-0' : 'w-[280px] md:w-[60px] -translate-x-full md:translate-x-0'}
+        `}
+      >
+      {/* Main sidebar content */}
+      <div className="flex flex-col h-full overflow-hidden w-full">
+      {/* Header */}
+      <div className="p-3 flex items-center justify-between border-b border-slate-700/50">
+        {isOpen ? (
+          <>
+            <div className="flex items-center space-x-3">
+              <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center text-white font-bold shadow-lg">
+                C
+              </div>
+              <span className="font-semibold text-lg tracking-tight">
+                Domain Pack
+              </span>
+            </div>
+            {/* Close sidebar button */}
+            <button
+              onClick={toggleSidebar}
+              className="p-1.5 rounded-md hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+              title="Close sidebar"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              </svg>
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={toggleSidebar}
+            className="w-full p-2 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center justify-center hidden md:flex"
+            title="Open sidebar"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
-        </button>
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
       </div>
 
       {/* New Chat Action */}
-      <div className="p-4">
+      <div className="p-3">
         <button
           onClick={onNewChat}
-          className="w-full bg-slate-700 hover:bg-indigo-600 text-white py-3 px-4 rounded-xl flex items-center justify-start space-x-3 transition-all duration-200 shadow-sm hover:shadow-md group"
+          className="w-full bg-slate-700 hover:bg-indigo-600 text-white py-3 px-3 rounded-xl flex items-center justify-center space-x-3 transition-all duration-200 shadow-sm hover:shadow-md group"
+          title="New chat"
         >
-          <span className="p-1 bg-slate-600 group-hover:bg-indigo-500 rounded-full transition-colors">
+          <span className="p-1 bg-slate-600 group-hover:bg-indigo-500 rounded-full transition-colors flex-shrink-0">
             <svg
               className="w-4 h-4"
               fill="none"
@@ -102,19 +118,19 @@ export default function Sidebar({
               />
             </svg>
           </span>
-          <span className="font-medium">New chat</span>
+          {isOpen && <span className="font-medium">New chat</span>}
         </button>
       </div>
 
-      {/* History List */}
-      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
-        {sessions.length > 0 ? (
-          <>
-            <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 ml-2">
-              Recent
-            </h3>
-            <ul className="space-y-1">
-              {sessions.map((session) => (
+      {/* History List - Only show when expanded */}
+      {(isOpen || window.innerWidth < 768) && (
+        <div className="flex-1 overflow-y-auto px-4 py-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
+          {sessions.length > 0 ? (
+            <>
+              <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 ml-2">
+                Recent
+              </h3>
+              <ul className="space-y-1">{sessions.map((session) => (
                 <li
                   key={session.id}
                   className={`group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
@@ -122,7 +138,11 @@ export default function Sidebar({
                       ? 'bg-slate-700 text-slate-100'
                       : 'text-slate-400 hover:bg-slate-700/50 hover:text-slate-100'
                   }`}
-                  onClick={() => onSelectSession(session.id)}
+                  onClick={() => {
+                      onSelectSession(session.id);
+                      // On mobile, close sidebar after selection
+                      if (window.innerWidth < 768) toggleSidebar();
+                  }}
                 >
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
                     <svg
@@ -202,20 +222,25 @@ export default function Sidebar({
             No chat sessions yet.<br />Start a new chat!
           </div>
         )}
-      </div>
+        </div>
+      )}
 
       {/* User Profile */}
-      <div className="p-4 border-t border-slate-700 bg-slate-800/50">
+      <div className="p-3 border-t border-slate-700 bg-slate-800/50">
         <div className="flex items-center space-x-3 cursor-pointer hover:bg-slate-700 p-2 rounded-lg transition-colors">
-          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-medium text-sm shadow-sm">
+          <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-medium text-sm shadow-sm flex-shrink-0">
             JD
           </div>
-          <div className="flex flex-col">
-            <span className="text-sm font-medium text-slate-200">John Doe</span>
-            <span className="text-xs text-slate-400">Pro Plan</span>
-          </div>
+          {isOpen && (
+            <div className="flex flex-col">
+              <span className="text-sm font-medium text-slate-200">John Doe</span>
+              <span className="text-xs text-slate-400">Pro Plan</span>
+            </div>
+          )}
         </div>
       </div>
+      </div>
     </div>
+    </>
   );
 }

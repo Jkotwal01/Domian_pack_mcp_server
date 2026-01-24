@@ -40,8 +40,12 @@ export const useChatSessions = () => {
   };
 
   const createNewSession = (title = 'New Chat') => {
+    // Generate a temporary ID for frontend tracking
+    // The actual MCP session ID will come from the backend
+    const tempId = `temp_${Date.now()}`;
     return {
-      id: Date.now().toString(),
+      id: tempId,
+      mcpSessionId: null,  // Will be set by backend after create_session
       title,
       messages: [],
       createdAt: new Date().toISOString(),
@@ -106,6 +110,16 @@ export const useChatSessions = () => {
     setActiveSessionId(sessionId);
   };
 
+  const updateMcpSessionId = (sessionId, mcpSessionId) => {
+    setSessions(prev =>
+      prev.map(s =>
+        s.id === sessionId
+          ? { ...s, mcpSessionId }
+          : s
+      )
+    );
+  };
+
   const getActiveSession = () => {
     return sessions.find(s => s.id === activeSessionId);
   };
@@ -118,6 +132,7 @@ export const useChatSessions = () => {
     deleteSession,
     renameSession,
     updateSessionMessages,
+    updateMcpSessionId,
     switchSession
   };
 };

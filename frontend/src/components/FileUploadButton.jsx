@@ -4,7 +4,7 @@ export default function FileUploadButton({ onFilesSelected, disabled }) {
   const fileInputRef = useRef(null);
   const [isDragging, setIsDragging] = useState(false);
 
-  const handleFileSelect = (files) => {
+  const handleFileSelect = async (files) => {
     if (!files || files.length === 0) return;
     
     const fileArray = Array.from(files);
@@ -18,18 +18,39 @@ export default function FileUploadButton({ onFilesSelected, disabled }) {
     });
 
     if (validFiles.length > 0) {
-      // Create preview URLs for images
-      const filesWithPreviews = validFiles.map(file => {
-        if (file.type.startsWith('image/')) {
-          return {
-            ...file,
-            preview: URL.createObjectURL(file)
-          };
+      // Process files to read content and create previews
+      const processedFiles = await Promise.all(validFiles.map(async (file) => {
+        const fileData = {
+          name: file.name,
+          type: file.type,
+          size: file.size,
+          lastModified: file.lastModified
+        };
+        
+        console.log(`Processing file: ${file.name}, Type: ${file.type}`);
+
+        // Read content for text-based files - Relaxed check
+        // If it's not an image, try to read it as text
+        if (!file.type.startsWith('image/')) {
+          try {
+            console.log(`Reading content for ${file.name}...`);
+            const text = await file.text();
+            fileData.content = text;
+            console.log(`Read ${text.length} characters.`);
+          } catch (e) {
+            console.error(`Failed to read content of ${file.name}`, e);
+          }
         }
-        return file;
-      });
+
+        // Create preview for images
+        if (file.type.startsWith('image/')) {
+          fileData.preview = URL.createObjectURL(file);
+        }
+
+        return fileData;
+      }));
       
-      onFilesSelected(filesWithPreviews);
+      onFilesSelected(processedFiles);
     }
   };
 

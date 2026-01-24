@@ -1,17 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { useMCPServer } from './useMCPServer';
 
-export const useChat = (sessionId, initialMessages = [], onMessagesUpdate) => {
+export const useChat = (sessionId, mcpSessionId, initialMessages = [], onMessagesUpdate, onMcpSessionIdUpdate) => {
     const [messages, setMessages] = useState(initialMessages);
     const [isTyping, setIsTyping] = useState(false);
-    const [uploadingFiles, setUploadingFiles] = useState([]);
+    const [uploadingFiles, setUploadingFiles] = useState(false); // Changed from [] to false
     const messagesEndRef = useRef(null);
     const { sendToMCP } = useMCPServer();
 
-    // Update messages when session changes
     useEffect(() => {
         setMessages(initialMessages);
-    }, [sessionId]);
+    }, [sessionId]); // Only update when session ID changes
 
     // Notify parent of message updates
     useEffect(() => {
@@ -50,21 +49,56 @@ export const useChat = (sessionId, initialMessages = [], onMessagesUpdate) => {
         setMessages(prev => [...prev, userMsg]);
         setIsTyping(true);
 
-        // Send to MCP server for tool calling
-        const mcpResponse = await sendToMCP(content, files);
+        try {
+            // Build conversation history correctly including the new user message
+            // We use functional update setMessages to get latest pre-update state, but here we just constructed userMsg
+            // So history is [...messages, userMsg]
+            const currentHistory = [...messages, userMsg].map(msg => ({
+                role: msg.role,
+                content: msg.content
+            }));
 
-        // Mock AI response delay
-        setTimeout(() => {
+            // Send to backend with MCP integration
+            const mcpResponse = await sendToMCP(
+                content,
+                files,
+                mcpSessionId,  // Use MCP session ID from backend
+                currentHistory
+            );
+
+            // Update MCP session ID if backend returned one
+            if (mcpResponse.sessionId && mcpResponse.sessionId !== mcpSessionId) {
+                onMcpSessionIdUpdate(mcpResponse.sessionId);
+            }
+
+            // Create AI message with backend response
             const aiMsg = {
                 id: Date.now() + 1,
                 role: 'assistant',
-                content: generateMockResponse(content, files),
+                content: mcpResponse.response || mcpResponse.error || 'No response from backend',
                 toolCalls: mcpResponse.toolCalls || [],
-                timestamp: new Date()
+                timestamp: new Date(),
+                error: !mcpResponse.success
             };
+
             setMessages(prev => [...prev, aiMsg]);
             setIsTyping(false);
-        }, 1500 + Math.random() * 1000);
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+            
+            // Add error message
+            const errorMsg = {
+                id: Date.now() + 1,
+                role: 'assistant',
+                content: `Error: ${error.message}. Please make sure the backend is running.`,
+                timestamp: new Date(),
+                error: true
+            };
+            
+            setMessages(prev => [...prev, errorMsg]);
+            setIsTyping(false);
+        }
     };
 
     return {
@@ -72,30 +106,7 @@ export const useChat = (sessionId, initialMessages = [], onMessagesUpdate) => {
         isTyping,
         uploadingFiles,
         sendMessage,
-        messagesEndRef
+        messagesEndRef,
+        sessionId
     };
 };
-
-const generateMockResponse = (input, files = []) => {
-    const responses = [
-        "That's an interesting perspective. Could you elaborate more?",
-        "I can help with that. Here's a breakdown of what you might need...",
-        "Based on what you've said, I'd recommend looking into React hooks more deeply.",
-        "Sure! Here is a list of items:\n\n1. First item\n2. Second item\n3. Third item\n\nHope this helps!",
-        "I understand. Let's proceed with the next step."
-    ];
-    
-    let response = responses[Math.floor(Math.random() * responses.length)];
-    
-    if (files.length > 0) {
-        response = `I received ${files.length} file(s). ${response}`;
-    }
-    
-    if (input) {
-        response += `\n\n(Context: "${input.substring(0, 20)}...")`;
-    }
-    
-    return response;
-};
-
-

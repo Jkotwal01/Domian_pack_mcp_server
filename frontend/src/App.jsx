@@ -15,15 +15,22 @@ function App() {
     deleteSession,
     renameSession,
     updateSessionMessages,
+    updateMcpSessionId,
     switchSession
   } = useChatSessions();
 
   const { messages, isTyping, uploadingFiles, sendMessage, messagesEndRef } = useChat(
     activeSessionId,
+    activeSession?.mcpSessionId || null,  // Pass MCP session ID to backend
     activeSession?.messages || [],
     (newMessages) => {
       if (activeSessionId) {
         updateSessionMessages(activeSessionId, newMessages);
+      }
+    },
+    (mcpSessionId) => {
+      if (activeSessionId) {
+        updateMcpSessionId(activeSessionId, mcpSessionId);
       }
     }
   );

@@ -29,16 +29,29 @@ mcp = FastMCP("Domain Pack MCP Server")
 @mcp.tool()
 def create_session(initial_content: str, file_type: str) -> Dict[str, Any]:
     """
-    Create a new domain pack session.
+    Create a new domain pack session with initial content.
+    
+    IMPORTANT USAGE RULES:
+    1. 'initial_content' must be a VALID YAML or JSON string, NOT a placeholder.
+    2. 'file_type' must be "yaml" or "json".
+    
     Args:
-        initial_content: YAML or JSON string containing the domain pack
-        file_type: File type - must be "yaml" or "json"
+        initial_content: The complete initial content of the domain pack.
+                        MUST be a valid dictionary string (e.g. YAML or JSON).
+                        DO NOT send "template goes here". Send the ACTUAL template.
+        file_type: "yaml" or "json"
         
     Returns:
         Session information including session_id
+        
     Example:
         create_session(
-            initial_content="name: Legal\\ndescription: Legal domain\\nversion: 1.0.0",
+            initial_content=\"\"\"
+name: Legal
+description: Legal domain
+version: 1.0.0
+entities: []
+\"\"\",
             file_type="yaml"
         )
     """
@@ -55,9 +68,13 @@ def create_session(initial_content: str, file_type: str) -> Dict[str, Any]:
 def apply_change(session_id: str, operation: Dict[str, Any], reason: str) -> Dict[str, Any]:
     """
     Apply a single operation to a domain pack.
+    
     Args:
         session_id: Session UUID from create_session
-        operation: Operation specification with action, path, and value
+        operation: Operation dictionary containing:
+                  - action: "add", "replace", "remove", "move", "copy", "test"
+                  - path: List of keys/indices to target (e.g. ["entities", 0, "name"])
+                  - value: New value (for add/replace/test)
         reason: Human-readable reason for the change
         
     Returns:
@@ -69,9 +86,9 @@ def apply_change(session_id: str, operation: Dict[str, Any], reason: str) -> Dic
             operation={
                 "action": "add",
                 "path": ["entities"],
-                "value": {"name": "Attorney", "type": "ATTORNEY", "attributes": ["name"]}
+                "value": {"name": "NewEntity", "type": "TEST"}
             },
-            reason="Added Attorney entity"
+            reason="Adding new entity"
         )
     """
     try:
@@ -88,10 +105,10 @@ def apply_change(session_id: str, operation: Dict[str, Any], reason: str) -> Dic
 def apply_batch(session_id: str, operations: List[Dict[str, Any]], reason: str) -> Dict[str, Any]:
     """
     Apply multiple operations atomically to a domain pack.
-    All operations succeed or all fail - no partial updates.
+    
     Args:
         session_id: Session UUID from create_session
-        operations: List of operation specifications
+        operations: List of operation dictionaries (see apply_change for format)
         reason: Human-readable reason for the changes
         
     Returns:
@@ -101,10 +118,10 @@ def apply_batch(session_id: str, operations: List[Dict[str, Any]], reason: str) 
         apply_batch(
             session_id="uuid-here",
             operations=[
-                {"action": "replace", "path": ["version"], "value": "3.1.0"},
-                {"action": "add", "path": ["key_terms"], "value": "arbitration"}
+                {"action": "replace", "path": ["version"], "value": "1.1.0"},
+                {"action": "add", "path": ["key_terms"], "value": "compliance"}
             ],
-            reason="Updated version and added key term"
+            reason="Bumping version and adding term"
         )
     """
     try:
