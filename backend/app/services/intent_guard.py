@@ -1,6 +1,5 @@
 """
 Intent Guard Service
-
 Manages pending intents for confirmation flow.
 Stores intents temporarily before user confirmation.
 """

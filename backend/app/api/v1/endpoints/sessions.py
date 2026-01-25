@@ -1,12 +1,12 @@
 """
 Sessions Endpoints - Session Management
-
 Handles session creation, retrieval, and deletion.
 """
 
 from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from typing import Optional
 import logging
+import jsonschema
 
 from app.models.api_models import SessionCreateRequest, SessionResponse
 from app.core import db, utils, schema, operations
@@ -32,7 +32,14 @@ async def create_session(
             content_str = content_bytes.decode('utf-8')
             # Detect file type from filename
             detected_type = utils.detect_file_type(file.filename)
-            file_type = file_type or detected_type
+            # Only use provided file_type if it's valid, otherwise use detected
+            if file_type and file_type.lower() not in ('string', 'none', ''):
+                try:
+                    file_type = utils.validate_file_type(file_type)
+                except ValueError:
+                    file_type = detected_type
+            else:
+                file_type = detected_type
         elif content:
             content_str = content
             if not file_type:
@@ -76,7 +83,7 @@ async def create_session(
     except utils.ParseError as e:
         logger.error(f"Parse error: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Parse error: {str(e)}")
-    except schema.validator.validator.ValidationError as e:
+    except jsonschema.ValidationError as e:
         logger.error(f"Validation error: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Validation error: {str(e)}")
     except Exception as e:

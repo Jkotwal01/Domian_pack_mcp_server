@@ -180,30 +180,6 @@ class ExportResponse(BaseModel):
 
 
 # ============================================================================
-# Streaming Models
-# ============================================================================
-
-class ProgressEvent(BaseModel):
-    """Progress event for SSE streaming"""
-    type: str = Field(..., description="Event type: status, progress, llm_chunk, validation, diff, complete, error")
-    message: str = Field(..., description="Event message")
-    data: Optional[Dict[str, Any]] = Field(None, description="Optional event data")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Event timestamp")
-    progress_percent: Optional[int] = Field(None, description="Progress percentage (0-100)")
-    
-    class Config:
-        json_schema_extra = {
-            "example": {
-                "type": "status",
-                "message": "Loading domain pack...",
-                "data": None,
-                "timestamp": "2024-01-25T10:30:00Z",
-                "progress_percent": 10
-            }
-        }
-
-
-# ============================================================================
 # Error Models
 # ============================================================================
 

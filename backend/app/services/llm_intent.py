@@ -8,10 +8,12 @@ LLM is used ONLY for intent extraction, NOT for file manipulation.
 import json
 import os
 from typing import Dict, Any, Optional
-from openai import AsyncOpenAI
 from app.models.api_models import OperationSpec
+from app.services.llm_providers import BaseLLMProvider, get_llm_provider
+from app.core.config import settings
 
 
+# System prompt for LLM
 # System prompt for LLM
 SYSTEM_PROMPT = """You translate user intent into structured operations for a domain pack editor.
 
@@ -23,14 +25,14 @@ RULES:
 - If uncertain, ask a clarifying question
 
 OUTPUT SCHEMA:
-{
+{{
   "intent_summary": "string - human-readable description of what will be done",
-  "operation": {
+  "operation": {{
     "action": "add | replace | delete | update | merge | add_unique | assert",
     "path": ["string"],  // path in domain pack structure
-    "value": {}  // depends on action
-  }
-}
+    "value": {{}}  // depends on action
+  }}
+}}
 
 AVAILABLE OPERATIONS:
 1. add - Add a value to a path (for dicts: adds new key, for arrays: appends)
@@ -53,18 +55,51 @@ Respond ONLY with valid JSON matching the OUTPUT SCHEMA above."""
 class LLMIntentService:
     """
     Service for extracting structured operations from natural language.
+    Supports multiple LLM providers (OpenAI, Groq, etc.) through configuration.
     """
     
-    def __init__(self, api_key: Optional[str] = None, model: str = "gpt-4-turbo-preview"):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.model = model
-        self.client = AsyncOpenAI(api_key=self.api_key) if self.api_key else None
+    def __init__(
+        self,
+        provider: Optional[BaseLLMProvider] = None,
+        api_key: Optional[str] = None,
+        model: Optional[str] = None,
+        provider_name: Optional[str] = None
+    ):
+        """
+        Initialize LLM Intent Service.
+        
+        Args:
+            provider: Pre-configured provider instance (takes precedence)
+            api_key: API key (falls back to config)
+            model: Model name (falls back to config)
+            provider_name: Provider name (falls back to config)
+        """
+        if provider:
+            self.provider = provider
+        else:
+            # Get configuration from settings or parameters
+            api_key = api_key or settings.get_llm_api_key
+            model = model or settings.get_llm_model
+            provider_name = provider_name or settings.LLM_PROVIDER
+            
+            if not api_key:
+                raise RuntimeError(
+                    f"LLM API key not configured. Set LLM_API_KEY or "
+                    f"OPENAI_API_KEY in environment variables."
+                )
+            
+            # Create provider using factory
+            self.provider = get_llm_provider(
+                provider_name=provider_name,
+                api_key=api_key,
+                model=model,
+                base_url=settings.LLM_BASE_URL
+            )
     
     async def extract_intent(
         self,
         user_message: str,
-        schema_definition: Dict[str, Any],
-        stream_callback: Optional[callable] = None
+        schema_definition: Dict[str, Any]
     ) -> tuple[str, OperationSpec]:
         """
         Extract structured operation from natural language.
@@ -72,7 +107,6 @@ class LLMIntentService:
         Args:
             user_message: Natural language message from user
             schema_definition: Current domain pack schema for context
-            stream_callback: Optional callback for streaming LLM chunks
             
         Returns:
             Tuple of (intent_summary, operation_spec)
@@ -81,8 +115,8 @@ class LLMIntentService:
             ValueError: If LLM response is invalid
             RuntimeError: If LLM API call fails
         """
-        if not self.client:
-            raise RuntimeError("OpenAI API key not configured")
+        if not self.provider:
+            raise RuntimeError("LLM provider not configured")
         
         # Build prompt with schema context
         prompt = SYSTEM_PROMPT.format(
@@ -91,11 +125,8 @@ class LLMIntentService:
         )
         
         try:
-            # Call LLM with streaming if callback provided
-            if stream_callback:
-                response_text = await self._stream_completion(prompt, stream_callback)
-            else:
-                response_text = await self._complete(prompt)
+            # Call LLM without streaming
+            response_text = await self._complete(prompt)
             
             # Parse JSON response
             response_data = self._parse_llm_response(response_text)
@@ -125,43 +156,11 @@ class LLMIntentService:
         Returns:
             LLM response text
         """
-        response = await self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "system", "content": prompt}],
+        return await self.provider.complete(
+            prompt=prompt,
             temperature=0.1,  # Low temperature for more deterministic output
             response_format={"type": "json_object"}  # Ensure JSON response
         )
-        
-        return response.choices[0].message.content
-    
-    async def _stream_completion(self, prompt: str, callback: callable) -> str:
-        """
-        Get completion from LLM with streaming.
-        
-        Args:
-            prompt: System prompt
-            callback: Async callback function for each chunk
-            
-        Returns:
-            Complete LLM response text
-        """
-        full_response = ""
-        
-        stream = await self.client.chat.completions.create(
-            model=self.model,
-            messages=[{"role": "system", "content": prompt}],
-            temperature=0.1,
-            response_format={"type": "json_object"},
-            stream=True
-        )
-        
-        async for chunk in stream:
-            if chunk.choices[0].delta.content:
-                content = chunk.choices[0].delta.content
-                full_response += content
-                await callback(content)  # Stream chunk to callback
-        
-        return full_response
     
     def _parse_llm_response(self, response_text: str) -> Dict[str, Any]:
         """
