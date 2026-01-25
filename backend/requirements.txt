@@ -10,3 +10,10 @@ ruamel.yaml>=0.18.5
 deepdiff>=6.7.1
 jsonschema>=4.21.1
 python-multipart>=0.0.9
+
+# LLM dependencies
+openai>=1.0.0
+tiktoken>=0.5.0
+
+# Streaming dependencies
+sse-starlette>=1.6.5

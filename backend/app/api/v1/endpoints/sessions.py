@@ -1,49 +1,121 @@
+"""
+Sessions Endpoints - Session Management
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from typing import Any, List
-import uuid
+Handles session creation, retrieval, and deletion.
+"""
 
-from app.db.session import get_db
-from app.services.domain_service import DomainService
-from app.schemas.api_requests import CreateSessionRequest, SessionResponse
-from app.core.exceptions import SessionNotFoundError
+from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
+from typing import Optional
+import logging
+
+from app.models.api_models import SessionCreateRequest, SessionResponse
+from app.core import db, utils, schema, operations
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
-def get_service(db: Session = Depends(get_db)) -> DomainService:
-    return DomainService(db)
 
 @router.post("/", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
-def create_session(
-    request: CreateSessionRequest,
-    service: DomainService = Depends(get_service)
+async def create_session(
+    file: Optional[UploadFile] = File(None),
+    content: Optional[str] = Form(None),
+    file_type: Optional[str] = Form(None)
 ):
+    """
+    Create a new domain pack session.
+    Accepts either file upload or raw content.
+    """
     try:
-        session = service.create_session(request)
-        return session
-    except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+        # Get content from file or form
+        if file:
+            content_bytes = await file.read()
+            content_str = content_bytes.decode('utf-8')
+            # Detect file type from filename
+            detected_type = utils.detect_file_type(file.filename)
+            file_type = file_type or detected_type
+        elif content:
+            content_str = content
+            if not file_type:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="file_type required when providing raw content"
+                )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Either file or content must be provided"
+            )
+        
+        # Validate file type
+        file_type = utils.validate_file_type(file_type)
+        
+        # Parse content
+        parsed_content = utils.parse_content(content_str, file_type)
+        
+        # Validate schema
+        schema.validate_domain_pack(parsed_content)
+        
+        # Create session
+        session_id = db.create_session(
+            initial_content=parsed_content,
+            file_type=file_type,
+            metadata=None
+        )
+        
+        # Get session info
+        session_info = db.get_session(session_id)
+        
+        return SessionResponse(
+            session_id=session_id,
+            version=session_info["current_version"],
+            file_type=session_info["file_type"],
+            created_at=session_info["created_at"],
+            tools=list(operations.OPERATIONS.keys())
+        )
+        
+    except utils.ParseError as e:
+        logger.error(f"Parse error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Parse error: {str(e)}")
+    except schema.validator.validator.ValidationError as e:
+        logger.error(f"Validation error: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Validation error: {str(e)}")
     except Exception as e:
-         # In a real app, log error
+        logger.error(f"Session creation failed: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
+
 @router.get("/{session_id}", response_model=SessionResponse)
-def get_session(
-    session_id: uuid.UUID,
-    service: DomainService = Depends(get_service)
-):
+async def get_session(session_id: str):
+    """
+    Get session information.
+    """
     try:
-        return service.get_session(session_id)
-    except SessionNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        session_info = db.get_session(session_id)
+        
+        return SessionResponse(
+            session_id=session_id,
+            version=session_info["current_version"],
+            file_type=session_info["file_type"],
+            created_at=session_info["created_at"],
+            tools=list(operations.OPERATIONS.keys())
+        )
+        
+    except db.SessionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    except Exception as e:
+        logger.error(f"Get session failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
 
 @router.delete("/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_session(
-    session_id: uuid.UUID,
-    service: DomainService = Depends(get_service)
-):
+async def delete_session(session_id: str):
+    """
+    Delete a session and all its versions.
+    """
     try:
-        service.delete_session(session_id)
-    except SessionNotFoundError as e:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+        db.delete_session(session_id)
+    except db.SessionNotFoundError:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    except Exception as e:
+        logger.error(f"Delete session failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
