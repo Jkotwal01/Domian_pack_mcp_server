@@ -14,7 +14,6 @@ from app.core.config import settings
 
 
 # System prompt for LLM
-# System prompt for LLM
 SYSTEM_PROMPT = """You translate user intent into structured operations for a domain pack editor.
 
 RULES:
@@ -26,22 +25,51 @@ RULES:
 
 OUTPUT SCHEMA:
 {{
-  "intent_summary": "string - human-readable description of what will be done",
-  "operation": {{
-    "action": "add | replace | delete | update | merge | add_unique | assert",
-    "path": ["string"],  // path in domain pack structure
-    "value": {{}}  // depends on action
-  }}
+  "type": "suggestion | operation",
+  "message": "string - conversational response for 'suggestion', or summary for 'operation'",
+  "operations": [  // ONLY required if type is 'operation'
+    {{
+      "action": "add | replace | delete | update | merge | add_unique | assert",
+      "path": ["string"],
+      "value": {{}},
+      "updates": {{}},
+      "strategy": "append",
+      "equals": {{}},
+      "exists": true
+    }}
+  ]
 }}
 
+GUIDELINES:
+1. If the user is asking for ideas, enhancements, or "what should I do", set type to "suggestion" and provide a helpful natural language response in "message". Leave "operations" empty or null.
+2. If the user is requesting a specific change (e.g., "Add entity Student", "Update description"), set type to "operation", provide a brief summary in "message", and define the "operations" list.
+
 AVAILABLE OPERATIONS:
-1. add - Add a value to a path (for dicts: adds new key, for arrays: appends)
+1. add - Add value to path (for dicts: adds new key, for arrays: appends)
 2. replace - Replace value at path
 3. delete - Delete value at path
-4. update - Update multiple fields in an object
+4. update - Update fields in an object
 5. merge - Merge objects or arrays
 6. add_unique - Add value only if it doesn't exist
-7. assert - Assert a condition (validation)
+7. assert - Assert a condition
+
+STRICT SECTION DEFINITIONS (DOMAIN PACK SCHEMA):
+- name (string), description (string), version (semantic version string)
+- entities (array of objects): requires [name, type, attributes (array)]
+- key_terms (array of strings)
+- entity_aliases (object): key=string, value=list of strings
+- extraction_patterns (array of objects): requires [pattern, entity_type, attribute, confidence (0-1)]
+- business_context (object): key=string, value=list of strings
+- relationship_types (array of objects): requires [type, business_context (object)]
+- relationships (array of objects): requires [name, from, to, attributes (array)]
+- business_patterns (array of objects): requires [name, description, stages (array)]
+- reasoning_templates (array of objects): requires [name, steps (object), triggers (array), confidence_threshold]
+- multihop_questions (array of objects): requires [template, examples (array), priority (low|medium|high|critical), reasoning_type]
+- question_templates (object): category_name -> array of objects with [template, priority, expected_answer_type]
+- business_rules (array of objects): requires [name, description, rules (array)]
+- validation_rules (object): complex nesting (key -> key -> list of strings)
+
+CRITICAL: Sections like 'entities', 'extraction_patterns', 'relationships', 'business_patterns', 'reasoning_templates', 'multihop_questions', and 'business_rules' MUST be ARRAYS. Never use objects/maps for these sections.
 
 CURRENT SCHEMA:
 {schema_definition}
@@ -100,16 +128,16 @@ class LLMIntentService:
         self,
         user_message: str,
         schema_definition: Dict[str, Any]
-    ) -> tuple[str, OperationSpec]:
+    ) -> Dict[str, Any]:
         """
-        Extract structured operation from natural language.
+        Extract structured operation or suggestion from natural language.
         
         Args:
             user_message: Natural language message from user
             schema_definition: Current domain pack schema for context
             
         Returns:
-            Tuple of (intent_summary, operation_spec)
+            Dictionary matching ChatIntentResponse structure (without intent_id)
             
         Raises:
             ValueError: If LLM response is invalid
@@ -131,17 +159,30 @@ class LLMIntentService:
             # Parse JSON response
             response_data = self._parse_llm_response(response_text)
             
-            # Extract intent summary and operation
-            intent_summary = response_data.get("intent_summary", "")
-            operation_data = response_data.get("operation", {})
+            # Extract basic fields
+            resp_type = response_data.get("type", "suggestion")
+            # fallback for old 'intent_summary' if LLM uses it
+            message = response_data.get("message") or response_data.get("intent_summary", "")
+            operations_data = response_data.get("operations", [])
             
-            if not intent_summary or not operation_data:
-                raise ValueError("LLM response missing required fields")
+            # Fallback for old single 'operation' format
+            if not operations_data and "operation" in response_data:
+                operations_data = [response_data["operation"]]
             
-            # Convert to OperationSpec
-            operation = OperationSpec(**operation_data)
+            # If it has operations, it's an operation
+            if operations_data and resp_type == "suggestion":
+                resp_type = "operation"
             
-            return intent_summary, operation
+            result = {
+                "type": resp_type,
+                "message": message
+            }
+            
+            if resp_type == "operation" and operations_data:
+                # Convert to list of OperationSpec to validate
+                result["operations"] = [OperationSpec(**op) for op in operations_data]
+            
+            return result
             
         except Exception as e:
             raise RuntimeError(f"LLM intent extraction failed: {str(e)}")

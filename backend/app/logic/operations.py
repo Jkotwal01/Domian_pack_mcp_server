@@ -34,18 +34,18 @@ def _get_value_at_path(data: Dict[str, Any], path: List[str]) -> Any:
     return current
 
 def _set_value_at_path(data: Dict[str, Any], path: List[str], value: Any) -> None:
-    """Set value at the specified path in the data structure (mutates data)."""
+    """
+    Set value at the specified path in the data structure (mutates data).
+    Auto-creates missing intermediate dictionaries.
+    """
     if not path:
         raise OperationError("Cannot set value at empty path")
     
     current = data
     
+    # Traverse to parent
     for i, key in enumerate(path[:-1]):
-        if isinstance(current, dict):
-            if key not in current:
-                raise OperationError(f"Path not found: {' -> '.join(path[:i+1])}")
-            current = current[key]
-        elif isinstance(current, list):
+        if isinstance(current, list):
             try:
                 index = int(key)
                 if index < 0 or index >= len(current):
@@ -53,6 +53,12 @@ def _set_value_at_path(data: Dict[str, Any], path: List[str], value: Any) -> Non
                 current = current[index]
             except ValueError:
                 raise OperationError(f"Invalid array index '{key}' at {' -> '.join(path[:i])}")
+        
+        elif isinstance(current, dict):
+            if key not in current:
+                current[key] = {} # Auto-create missing dicts
+            current = current[key]
+            
         else:
             raise OperationError(f"Cannot traverse non-dict/list at {' -> '.join(path[:i])}")
     
@@ -82,131 +88,150 @@ def _delete_at_path(data: Dict[str, Any], path: List[str]) -> None:
     for i, key in enumerate(path[:-1]):
         if isinstance(current, dict):
             if key not in current:
-                raise OperationError(f"Path not found: {' -> '.join(path[:i+1])}")
+                # If path is missing, deleting it is effectively done
+                return 
             current = current[key]
         elif isinstance(current, list):
             try:
                 index = int(key)
                 if index < 0 or index >= len(current):
-                    raise OperationError(f"Index {index} out of range at {' -> '.join(path[:i])}")
+                    return # Out of range deletion is a no-op
                 current = current[index]
             except ValueError:
-                raise OperationError(f"Invalid array index '{key}' at {' -> '.join(path[:i])}")
+                 raise OperationError(f"Invalid array index '{key}' at {' -> '.join(path[:i])}")
         else:
             raise OperationError(f"Cannot traverse non-dict/list at {' -> '.join(path[:i])}")
     
-    # Delete the final key
     final_key = path[-1]
-    
     if isinstance(current, dict):
-        if final_key not in current:
-            raise OperationError(f"Key '{final_key}' not found at {' -> '.join(path[:-1])}")
-        del current[final_key]
+        if final_key in current:
+            del current[final_key]
     elif isinstance(current, list):
         try:
             index = int(final_key)
-            if index < 0 or index >= len(current):
-                raise OperationError(f"Index {index} out of range")
-            current.pop(index)
+            if 0 <= index < len(current):
+                current.pop(index)
         except ValueError:
-            raise OperationError(f"Invalid array index '{final_key}'")
-    else:
-        raise OperationError(f"Cannot delete from non-dict/list at {' -> '.join(path[:-1])}")
+            pass
 
 def op_add(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:
-    """Add operation: Add a value to a path."""
+    """
+    Add operation: Add a value to a path.
+    Automatically creates missing intermediate dictionaries.
+    If target is an array, appends the value.
+    """
     result = copy.deepcopy(data)
     
     if not path:
         raise OperationError("Cannot add at empty path")
     
-    if len(path) == 1:
-        # Adding to root level
-        key = path[0]
-        if key in result:
-            # Check if it's an array - if so, append
-            if isinstance(result[key], list):
-                result[key].append(value)
-            else:
-                raise OperationError(f"Key '{key}' already exists at root and is not an array")
+    # 1. Navigate/Create parents
+    current = result
+    for i, key in enumerate(path[:-1]):
+        if isinstance(current, list):
+            try:
+                index = int(key)
+                current = current[index]
+            except (ValueError, IndexError):
+                 raise OperationError(f"Navigation failed at {' -> '.join(path[:i+1])}")
+        elif isinstance(current, dict):
+            if key not in current:
+                current[key] = {}
+            current = current[key]
         else:
-            result[key] = value
-    else:
-        # Navigate to parent
-        parent = _get_value_at_path(result, path[:-1])
-        final_key = path[-1]
-        
-        if isinstance(parent, dict):
-            if final_key in parent:
-                # Check if it's an array - if so, append
-                if isinstance(parent[final_key], list):
-                    parent[final_key].append(value)
-                else:
-                    raise OperationError(f"Key '{final_key}' already exists at {' -> '.join(path[:-1])} and is not an array")
-            else:
-                parent[final_key] = value
-        elif isinstance(parent, list):
-            # For arrays, append the value (ignore the key)
-            parent.append(value)
-        else:
-            raise OperationError(f"Cannot add to non-dict/list at {' -> '.join(path[:-1])}")
+            raise OperationError(f"Navigation failed at non-container node: {' -> '.join(path[:i])}")
+
+    # 2. Add to final parent
+    parent = current
+    final_key = path[-1]
     
+    if isinstance(parent, dict):
+        if final_key in parent:
+            if isinstance(parent[final_key], list):
+                parent[final_key].append(value)
+            else:
+                raise OperationError(f"Target '{final_key}' exists and is not a list")
+        else:
+            parent[final_key] = value
+    elif isinstance(parent, list):
+        parent.append(value)
+    else:
+        raise OperationError("Failed to add: parent is not a container")
+        
     return result
 
 def op_replace(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:
-    """Replace operation: Replace value at path."""
+    """Replace value at path (with auto-create behavior)."""
     result = copy.deepcopy(data)
     _set_value_at_path(result, path, value)
     return result
 
 def op_delete(data: Dict[str, Any], path: List[str]) -> Dict[str, Any]:
-    """Delete operation: Remove value at path."""
+    """Delete value at path."""
     result = copy.deepcopy(data)
     _delete_at_path(result, path)
     return result
 
 def op_update(data: Dict[str, Any], path: List[str], updates: Dict[str, Any]) -> Dict[str, Any]:
-    """Update operation: Update multiple fields in an object."""
+    """Update fields in an object (with auto-create target behavior)."""
     result = copy.deepcopy(data)
     
-    if not path:
-        # Update root
-        if not isinstance(result, dict):
-            raise OperationError("Cannot update non-dict at root")
-        result.update(updates)
-    else:
-        target = _get_value_at_path(result, path)
-        if not isinstance(target, dict):
-            raise OperationError(f"Cannot update non-dict at {' -> '.join(path)}")
-        target.update(updates)
+    current = result
+    if path:
+        for i, key in enumerate(path):
+            if isinstance(current, dict):
+                if key not in current:
+                    current[key] = {}
+                current = current[key]
+            elif isinstance(current, list):
+                try:
+                    index = int(key)
+                    current = current[index]
+                except (ValueError, IndexError):
+                    raise OperationError(f"Update failed: navigation error at {key}")
+            else:
+                raise OperationError("Update failed: path segment not a dict")
     
+    if not isinstance(current, dict):
+        raise OperationError("Update failed: target is not a dictionary")
+    
+    current.update(updates)
     return result
 
 def op_merge(data: Dict[str, Any], path: List[str], value: Any, strategy: str = "append") -> Dict[str, Any]:
-    """Merge operation: Merge objects or arrays."""
+    """Merge structure at path (with auto-create behavior)."""
     result = copy.deepcopy(data)
     
-    if not path:
-        # Merge at root
-        if isinstance(result, dict) and isinstance(value, dict):
-            result.update(value)
-        elif isinstance(result, list) and isinstance(value, list):
-            result.extend(value)
-        else:
-            raise OperationError("Type mismatch for merge at root")
-    else:
-        target = _get_value_at_path(result, path)
+    # Simple strategy: find or create target then apply logic
+    current = result
+    if path:
+        # Traverse to target's parent
+        for i, key in enumerate(path[:-1]):
+            if isinstance(current, dict):
+                if key not in current: current[key] = {}
+                current = current[key]
+            elif isinstance(current, list):
+                try: current = current[int(key)]
+                except: raise OperationError("Merge navigation error")
         
-        if isinstance(target, dict) and isinstance(value, dict):
-            target.update(value)
-        elif isinstance(target, list) and isinstance(value, list):
-            if strategy == "append":
-                target.extend(value)
-            else:
-                raise OperationError(f"Unknown merge strategy for arrays: {strategy}")
+        final_key = path[-1]
+        if isinstance(current, dict):
+            if final_key not in current:
+                current[final_key] = [] if isinstance(value, list) else {}
+            target = current[final_key]
         else:
-            raise OperationError(f"Type mismatch for merge at {' -> '.join(path)}")
-    
+             raise OperationError("Merge failed: parent is not a dict")
+    else:
+        target = result
+
+    # Perform merge logic
+    if isinstance(target, dict) and isinstance(value, dict):
+        target.update(value)
+    elif isinstance(target, list) and isinstance(value, list):
+        target.extend(value)
+    else:
+        raise OperationError(f"Merge type mismatch at {' -> '.join(path)}")
+        
     return result
 
 def op_add_unique(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:

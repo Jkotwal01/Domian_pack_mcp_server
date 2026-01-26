@@ -164,6 +164,10 @@ def create_session(initial_content: Dict[str, Any], file_type: str, metadata: Op
         
         session_id = str(uuid.uuid4())
         
+        # Ensure full schema structure
+        from app.core import utils
+        initial_content = utils.initialize_domain_pack(initial_content)
+        
         # Insert session
         cursor.execute(
             """
@@ -401,8 +405,7 @@ def list_versions(session_id: str, limit: int = 50) -> List[Dict[str, Any]]:
         
         cursor.execute(
             """
-            SELECT version, reason, created_at,
-                   jsonb_object_keys(diff) as change_keys
+            SELECT version, reason, created_at, diff
             FROM versions
             WHERE session_id = %s
             ORDER BY version DESC
@@ -450,3 +453,5 @@ def delete_session(session_id: str):
     finally:
         if conn:
             conn.close()
+
+

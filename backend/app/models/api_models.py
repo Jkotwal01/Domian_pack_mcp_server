@@ -63,10 +63,11 @@ class OperationSpec(BaseModel):
 
 
 class ChatIntentResponse(BaseModel):
-    """Response with extracted intent (not yet applied)"""
-    intent_summary: str = Field(..., description="Human-readable summary of intent")
-    operation: OperationSpec = Field(..., description="Structured operation to be applied")
-    intent_id: str = Field(..., description="Intent ID for confirmation")
+    """Response with extracted intent (not yet applied) or suggestion"""
+    type: str = Field(..., description="'suggestion' or 'operation'")
+    message: str = Field(..., description="LLM response message or intent summary")
+    operations: Optional[List[OperationSpec]] = Field(None, description="List of structured operations to be applied if type is 'operation'")
+    intent_id: Optional[str] = Field(None, description="Intent ID for confirmation (if type is 'operation')")
 
 
 class ChatConfirmRequest(BaseModel):

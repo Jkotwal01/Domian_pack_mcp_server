@@ -1,114 +1,153 @@
 /**
- * API service for backend communication
+ * API service for Domain Pack Backend v1
  */
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
+const API_BASE = `${BACKEND_URL}/api/v1`;
 
 /**
- * Send a chat message to the backend
- * @param {string} message - User message
- * @param {string|null} sessionId - Optional session ID
- * @param {Array} conversationHistory - Optional conversation history
- * @returns {Promise<Object>} Chat response
+ * Handle API responses
  */
-export async function sendChatMessage(message, files = [], sessionId = null, conversationHistory = []) {
-  try {
-    console.log('Sending message to backend:', { message, filesCount: files.length, sessionId });
-    if (files.length > 0) {
-        console.log('First file content preview:', files[0].name, files[0].content ? files[0].content.substring(0, 50) : 'NO CONTENT');
-    }
-
-    const response = await fetch(`${BACKEND_URL}/chat`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message,
-        files,
-        session_id: sessionId,
-        conversation_history: conversationHistory
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return {
-      success: true,
-      response: data.response,
-      sessionId: data.session_id,
-      toolCalls: data.tool_calls || []
-    };
-  } catch (error) {
-    console.error('Error sending chat message:', error);
-    return {
-      success: false,
-      error: error.message
-    };
+async function handleResponse(response) {
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`);
   }
+  return await response.json();
+}
+
+export async function createSession(contentOrFile, fileType = null, metadata = {}) {
+  const formData = new FormData();
+  
+  if (contentOrFile instanceof File) {
+    formData.append('file', contentOrFile);
+  } else if (typeof contentOrFile === 'object' && contentOrFile.content) {
+    // Handle our "wrapped" file object from FileUploadButton
+    formData.append('content', contentOrFile.content);
+  } else {
+    formData.append('content', contentOrFile);
+  }
+  
+  if (fileType) {
+    formData.append('file_type', fileType);
+  }
+
+  const response = await fetch(`${API_BASE}/sessions/`, {
+    method: 'POST',
+    body: formData
+    // Note: No 'Content-Type' header needed for FormData; browser sets it automatically with boundary
+  });
+  return handleResponse(response);
+}
+
+export async function getSession(sessionId) {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}`);
+  return handleResponse(response);
 }
 
 /**
- * Call MCP tool directly (for testing)
- * @param {string} toolName - Name of the tool
- * @param {Object} args - Tool arguments
- * @returns {Promise<Object>} Tool result
+ * CHAT & INTENT
  */
-export async function callMCPTool(toolName, args) {
-  try {
-    const response = await fetch(`${BACKEND_URL}/mcp/call?tool_name=${toolName}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(args),
-    });
+export async function sendChatIntent(sessionId, message) {
+  const response = await fetch(`${API_BASE}/chat/intent`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, message })
+  });
+  const data = await handleResponse(response);
+  return {
+    success: true,
+    type: data.type,
+    message: data.message,
+    operations: data.operations,
+    intentId: data.intent_id
+  };
+}
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('Error calling MCP tool:', error);
-    return {
-      success: false,
-      error: error.message
-    };
-  }
+export async function confirmChatIntent(sessionId, intentId, approved = true) {
+  const response = await fetch(`${API_BASE}/chat/confirm`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, intent_id: intentId, approved })
+  });
+  const data = await handleResponse(response);
+  return {
+    success: true,
+    approved: data.approved,
+    version: data.version,
+    diff: data.diff,
+    message: data.message
+  };
 }
 
 /**
- * Check backend health
- * @returns {Promise<Object>} Health status
+ * OPERATIONS
+ */
+export async function applyOperation(sessionId, operation, reason = "Direct operation") {
+  const response = await fetch(`${API_BASE}/operations/apply`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, operation, reason })
+  });
+  return handleResponse(response);
+}
+
+export async function getAvailableTools() {
+  const response = await fetch(`${API_BASE}/operations/tools`);
+  return handleResponse(response);
+}
+
+/**
+ * VERSIONS
+ */
+export async function listVersions(sessionId, limit = 50) {
+  const response = await fetch(`${API_BASE}/versions/${sessionId}?limit=${limit}`);
+  const data = await handleResponse(response);
+  return data.versions;
+}
+
+export async function getVersion(sessionId, version) {
+  const response = await fetch(`${API_BASE}/versions/${sessionId}/${version}`);
+  return handleResponse(response);
+}
+
+/**
+ * ROLLBACK
+ */
+export async function rollbackVersion(sessionId, targetVersion) {
+  const response = await fetch(`${API_BASE}/rollback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, target_version: targetVersion })
+  });
+  return handleResponse(response);
+}
+
+/**
+ * EXPORT
+ */
+export async function exportDomainPack(sessionId, format = 'yaml') {
+  const response = await fetch(`${API_BASE}/export/${sessionId}?format=${format}`);
+  return handleResponse(response);
+}
+
+/**
+ * HEALTH
  */
 export async function checkHealth() {
   try {
     const response = await fetch(`${BACKEND_URL}/health`);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    return await response.json();
+    const data = await handleResponse(response);
+    return { status: 'healthy', ...data };
   } catch (error) {
-    console.error('Error checking backend health:', error);
-    return {
-      status: 'unhealthy',
-      error: error.message
-    };
+    return { status: 'unhealthy', error: error.message };
   }
 }
 
-/**
- * Get backend URL
- * @returns {string} Backend URL
- */
 export function getBackendUrl() {
   return BACKEND_URL;
+}
+
+export function getDownloadUrl(sessionId, format = 'yaml') {
+  return `${API_BASE}/export/${sessionId}/download?format=${format}`;
 }

@@ -28,27 +28,37 @@ async def extract_intent(request: ChatIntentRequest):
     Extract structured operation from natural language.
     Returns proposed operation WITHOUT applying it.
     """
+    # Sanitize inputs
+    request.session_id = request.session_id.strip()
+    request.message = request.message.strip()
     try:
         # Load current schema from DB
         version_data = db.get_latest_version(request.session_id)
         schema_content = version_data["content"]
         
         # Extract intent using LLM (without streaming callback)
-        intent_summary, operation = await llm_service.extract_intent(
+        intent_info = await llm_service.extract_intent(
             user_message=request.message,
             schema_definition=schema_content
         )
         
-        # Store pending intent
-        intent_id = await intent_guard.store_intent(
-            session_id=request.session_id,
-            operation=operation,
-            intent_summary=intent_summary
-        )
+        resp_type = intent_info["type"]
+        message = intent_info["message"]
+        operations_list = intent_info.get("operations")
+        
+        intent_id = None
+        if resp_type == "operation" and operations_list:
+            # Store pending intent only for operations
+            intent_id = await intent_guard.store_intent(
+                session_id=request.session_id,
+                operations=operations_list,
+                intent_summary=message
+            )
         
         return ChatIntentResponse(
-            intent_summary=intent_summary,
-            operation=operation,
+            type=resp_type,
+            message=message,
+            operations=operations_list,
             intent_id=intent_id
         )
         
@@ -64,7 +74,12 @@ async def confirm_intent(request: ChatConfirmRequest):
     """
     Confirm and apply (or reject) a pending intent.
     """
+    # Sanitize inputs
+    request.session_id = request.session_id.strip()
+    request.intent_id = request.intent_id.strip()
+    
     try:
+        logger.info(f"Confirming intent: '{request.intent_id}' for session: '{request.session_id}'")
         if not request.approved:
             # Reject intent
             rejected = await intent_guard.reject_intent(request.intent_id)
@@ -80,7 +95,7 @@ async def confirm_intent(request: ChatConfirmRequest):
             )
         
         # Retrieve and confirm intent
-        intent = await intent_guard.confirm_intent(request.intent_id)
+        intent = await intent_guard.confirm_intent(request.intent_id, request.session_id)
         if not intent:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -95,9 +110,12 @@ async def confirm_intent(request: ChatConfirmRequest):
         # Validate pre-operation
         schema.validate_domain_pack(content)
         
-        # Apply operation
-        operation_dict = intent.operation.model_dump(exclude_none=True)
-        new_content = operations.apply_operation(content, operation_dict)
+        # Ensure proper structure before applying operations
+        content = utils.initialize_domain_pack(content)
+        
+        # Apply operations as a batch
+        operations_list = [op.model_dump(exclude_none=True) for op in intent.operations]
+        new_content = operations.apply_batch(content, operations_list)
         
         # Bump version
         version_manager.bump_version(new_content, "patch")

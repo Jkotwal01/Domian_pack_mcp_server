@@ -1,7 +1,9 @@
 import FileAttachment from './FileAttachment';
 import ToolCallDisplay from './ToolCallDisplay';
+import IntentConfirmation from './IntentConfirmation';
+import DiffExplorer from './DiffExplorer';
 
-export default function MessageBubble({ message }) {
+export default function MessageBubble({ message, onConfirmIntent }) {
   const isAi = message.role === "assistant";
 
   // Simple markdown-like rendering
@@ -146,6 +148,19 @@ export default function MessageBubble({ message }) {
                   <ToolCallDisplay key={index} toolCall={toolCall} />
                 ))}
               </div>
+            )}
+
+            {/* Proposed Intent (for operations) */}
+            {message.type === 'operation' && message.intentId && (
+              <IntentConfirmation 
+                operations={message.operations} 
+                onConfirm={(approved) => onConfirmIntent(message.intentId, approved)}
+              />
+            )}
+
+            {/* Diff Explorer (for applied actions) */}
+            {message.isSystemAction && message.diff && (
+              <DiffExplorer diff={message.diff} version={message.version} />
             )}
 
             {/* Error state */}

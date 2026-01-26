@@ -1,6 +1,5 @@
 """
 Export Endpoint - Domain Pack Export
-
 Handles exporting domain packs in YAML or JSON format.
 """
 

@@ -32,6 +32,86 @@ yaml.default_flow_style = False # Forces block style instead of flow style
 yaml.width = 4096  # Prevent line wrapping
 
 
+# Standard order for Domain Pack top-level sections
+# Ensures: name -> description -> version -> ...
+STANDARD_SECTION_ORDER = [
+    "name",
+    "description",
+    "version",
+    "entities",
+    "key_terms",
+    "entity_aliases",
+    "extraction_patterns",
+    "business_context",
+    "relationship_types",
+    "relationships",
+    "business_patterns",
+    "reasoning_templates",
+    "multihop_questions",
+    "question_templates",
+    "business_rules",
+    "validation_rules"
+]
+
+
+# Default values for top-level sections to ensure schema compliance
+DEFAULT_SECTION_VALUES = {
+    "entities": [],
+    "key_terms": [],
+    "entity_aliases": {},
+    "extraction_patterns": [],
+    "business_context": {},
+    "relationship_types": [],
+    "relationships": [],
+    "business_patterns": [],
+    "reasoning_templates": [],
+    "multihop_questions": [],
+    "question_templates": {},
+    "business_rules": [],
+    "validation_rules": {}
+}
+
+
+def initialize_domain_pack(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Ensure all standard domain pack sections exist in the data.
+    Missing sections are initialized with their default empty values (list or dict).
+    """
+    if not isinstance(data, dict):
+        return data
+    
+    # Initialize missing sections with defaults
+    for key, default_value in DEFAULT_SECTION_VALUES.items():
+        if key not in data or data[key] is None:
+            data[key] = default_value
+    
+    return data
+
+
+def reorder_domain_pack(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Reorder top-level keys of a domain pack dictionary to match standard sequence.
+    Sequence: name, description, version, then others.
+    """
+    if not isinstance(data, dict):
+        return data
+    
+    reordered = {}
+    
+    # 1. Add keys in standard order if they exist
+    for key in STANDARD_SECTION_ORDER:
+        if key in data:
+            reordered[key] = data[key]
+    
+    # 2. Add any remaining keys that were not in the standard list
+    # (Though schema-compliant packs shouldn't have any)
+    for key in data:
+        if key not in reordered:
+            reordered[key] = data[key]
+            
+    return reordered
+
+
 def parse_yaml(content: str) -> Dict[str, Any]:
     """
     Parse YAML content to dictionary.
@@ -101,15 +181,11 @@ def serialize_yaml(data: Dict[str, Any]) -> str:
         raise SerializationError(f"Data must be a dictionary, got {type(data).__name__}")
     
     try:
+        # Enforce standard key ordering
+        ordered_data = reorder_domain_pack(data)
+        
         stream = StringIO() 
-        """Creates an in-memory file-like object
-            Behaves like a writable text file
-            No disk I/O involved
-            Ideal for:
-            Capturing output as a string
-            Returning serialized content
-            Testing or further processing"""
-        yaml.dump(data, stream) # Converts the Python object data into YAML format and writes it to the stream.
+        yaml.dump(ordered_data, stream)
         return stream.getvalue()
     except Exception as e:
         raise SerializationError(f"Failed to serialize to YAML: {str(e)}")
@@ -133,10 +209,13 @@ def serialize_json(data: Dict[str, Any], pretty: bool = True) -> str:
         raise SerializationError(f"Data must be a dictionary, got {type(data).__name__}")
     
     try:
+        # Enforce standard key ordering
+        ordered_data = reorder_domain_pack(data)
+        
         if pretty:
-            return json.dumps(data, indent=2, ensure_ascii=False)
+            return json.dumps(ordered_data, indent=2, ensure_ascii=False)
         else:
-            return json.dumps(data, ensure_ascii=False)
+            return json.dumps(ordered_data, ensure_ascii=False)
     except Exception as e:
         raise SerializationError(f"Failed to serialize to JSON: {str(e)}")
 
@@ -241,22 +320,26 @@ def calculate_diff(old_data: Dict[str, Any], new_data: Dict[str, Any]) -> Dict[s
             Serializable
             Human-readable"""
     if "dictionary_item_added" in diff:
-        result["added"] = {str(k): v for k, v in diff["dictionary_item_added"].items()}
+        result["added"].update({str(k): v for k, v in diff["dictionary_item_added"].items()})
+    if "iterable_item_added" in diff:
+        result["added"].update({str(k): v for k, v in diff["iterable_item_added"].items()})
     
-        """
-        What this captures
-        Keys that existed in old_data but are missing in new_data
-        Example:
-        old = {"a": 1, "b": 2}
-        new = {"a": 1}
+    """
+    What this captures
+    Keys that existed in old_data but are missing in new_data
+    Example:
+    old = {"a": 1, "b": 2}
+    new = {"a": 1}
 
-        Result:
-        "removed": {
-        "root['b']": 2
-        }
-        """
+    Result:
+    "removed": {
+    "root['b']": 2
+    }
+    """
     if "dictionary_item_removed" in diff:
-        result["removed"] = {str(k): v for k, v in diff["dictionary_item_removed"].items()}
+        result["removed"].update({str(k): v for k, v in diff["dictionary_item_removed"].items()})
+    if "iterable_item_removed" in diff:
+        result["removed"].update({str(k): v for k, v in diff["iterable_item_removed"].items()})
     
     """
     What this captures:

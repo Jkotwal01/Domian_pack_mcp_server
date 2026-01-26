@@ -9,15 +9,18 @@ from typing import Dict, Optional
 from datetime import datetime, timedelta
 from app.models.api_models import OperationSpec
 import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PendingIntent:
     """Represents a pending intent awaiting confirmation"""
     
-    def __init__(self, session_id: str, operation: OperationSpec, intent_summary: str):
+    def __init__(self, session_id: str, operations: list[OperationSpec], intent_summary: str):
         self.intent_id = str(uuid.uuid4())
         self.session_id = session_id
-        self.operation = operation
+        self.operations = operations
         self.intent_summary = intent_summary
         self.created_at = datetime.utcnow()
     
@@ -41,7 +44,7 @@ class IntentGuard:
     async def store_intent(
         self,
         session_id: str,
-        operation: OperationSpec,
+        operations: list[OperationSpec],
         intent_summary: str
     ) -> str:
         """
@@ -55,10 +58,11 @@ class IntentGuard:
         Returns:
             Intent ID for confirmation
         """
-        intent = PendingIntent(session_id, operation, intent_summary)
+        intent = PendingIntent(session_id, operations, intent_summary)
         
         async with self._lock:
             self.pending_intents[intent.intent_id] = intent
+            logger.debug(f"Stored intent {intent.intent_id} for session {session_id}")
         
         return intent.intent_id
     
@@ -85,12 +89,13 @@ class IntentGuard:
             
             return intent
     
-    async def confirm_intent(self, intent_id: str) -> Optional[PendingIntent]:
+    async def confirm_intent(self, intent_id: str, session_id: str) -> Optional[PendingIntent]:
         """
         Confirm and remove a pending intent.
         
         Args:
             intent_id: Intent ID
+            session_id: Session ID (must match stored intent)
             
         Returns:
             PendingIntent if found and confirmed, None otherwise
@@ -103,6 +108,11 @@ class IntentGuard:
             
             if intent.is_expired(self.timeout_seconds):
                 del self.pending_intents[intent_id]
+                return None
+            
+            # Verify session ID matches
+            if intent.session_id != session_id:
+                logger.warning(f"Session ID mismatch for intent {intent_id}: expected {intent.session_id}, got {session_id}")
                 return None
             
             # Remove from pending

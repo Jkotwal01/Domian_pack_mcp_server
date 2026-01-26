@@ -2,12 +2,14 @@ import MessageBubble from "./MessageBubble";
 import InputArea from "./InputArea";
 import TypingIndicator from "./TypingIndicator";
 import FileUploadLoader from "./FileUploadLoader";
+import Onboarding from "./Onboarding";
 
 export default function ChatArea({
   messages,
   isTyping,
   uploadingFiles,
   onSendMessage,
+  onConfirmIntent,
   messagesEndRef,
   sidebarOpen,
   toggleSidebar,
@@ -16,21 +18,20 @@ export default function ChatArea({
     <div className="flex flex-col h-full w-full bg-slate-50 relative">
       {/* Messages */}
       <div className="flex-1 overflow-y-auto w-full px-2 sm:px-6 md:px-12 lg:px-24 xl:px-48 py-4 sm:py-6 space-y-6 sm:space-y-8 scroll-smooth">
-        {/* Welcome text if empty */}
+        {/* Onboarding if empty */}
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-4 px-4">
-            <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
-              <span className="text-3xl">👋</span>
-            </div>
-            <h2 className="text-2xl font-semibold text-slate-700">
-              Welcome to Chat
-            </h2>
-            <p>Start a conversation below.</p>
-          </div>
+          <Onboarding 
+            onFileUpload={(file) => onSendMessage("", [file])}
+            isUploading={isTyping}
+          />
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble 
+            key={msg.id} 
+            message={msg} 
+            onConfirmIntent={onConfirmIntent}
+          />
         ))}
 
         {uploadingFiles && uploadingFiles.length > 0 && (
