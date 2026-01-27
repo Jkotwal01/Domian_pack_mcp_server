@@ -136,7 +136,7 @@ DOMAIN_PACK_SCHEMA = {
             "type": "array",
             "items": {
                 "type": "object",
-                "required": ["name", "from", "to", "attributes"],
+                "required": ["name", "from", "to", "attributes","synonyms"],
                 "additionalProperties": False,
                 "properties": {
                     "name": {"type": "string", "minLength": 1},

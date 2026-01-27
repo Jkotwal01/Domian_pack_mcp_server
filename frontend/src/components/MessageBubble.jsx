@@ -35,7 +35,7 @@ export default function MessageBubble({ message, onConfirmIntent }) {
                 if (line.match(/^\d+\.\s/)) {
                     return (
                         <div key={`${i}-num-${idx}`} className="flex gap-2 ml-1">
-                            <span className="text-indigo-600 font-medium min-w-[1.5rem]">{line.match(/^\d+\./)[0]}</span>
+                            <span className="text-indigo-600 font-medium min-w-6">{line.match(/^\d+\./)[0]}</span>
                             <span>{line.replace(/^\d+\.\s/, '')}</span>
                         </div>
                     );
@@ -102,8 +102,8 @@ export default function MessageBubble({ message, onConfirmIntent }) {
         <div
           className={`shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-semibold ${
             isAi
-              ? "bg-gradient-to-br from-indigo-500 to-purple-600 text-white shadow-md"
-              : "bg-gradient-to-br from-slate-200 to-slate-300 text-slate-700"
+              ? "bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-md"
+              : "bg-linear-to-br from-slate-200 to-slate-300 text-slate-700"
           }`}
         >
           {isAi ? "🤖" : "👤"}
@@ -119,12 +119,12 @@ export default function MessageBubble({ message, onConfirmIntent }) {
             className={`px-3 sm:px-5 py-3 sm:py-4 rounded-2xl text-[14px] sm:text-[15px] leading-6 sm:leading-7 shadow-sm w-full relative ${
               isAi
                 ? "bg-white border border-slate-200 text-slate-800 rounded-tl-md"
-                : "bg-gradient-to-br from-indigo-50 to-indigo-100 text-slate-800 border border-indigo-200 rounded-tr-md"
+                : "bg-linear-to-br from-indigo-50 to-indigo-100 text-slate-800 border border-indigo-200 rounded-tr-md"
             }`}
           >
             {/* Message content */}
             {message.content && (
-              <div className="whitespace-pre-wrap font-normal prose prose-sm max-w-none break-words overflow-hidden">
+              <div className="whitespace-pre-wrap font-normal prose prose-sm max-w-none wrap-break-word overflow-hidden">
                 {renderContent(message.content)}
               </div>
             )}

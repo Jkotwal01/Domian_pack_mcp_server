@@ -127,8 +127,7 @@ class LLMIntentService:
     async def extract_intent(
         self,
         user_message: str,
-        schema_definition: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        schema_definition: Dict[str, Any]) -> Dict[str, Any]:
         """
         Extract structured operation or suggestion from natural language.
         

@@ -4,7 +4,7 @@ export default function FileUploadLoader({ fileName, progress = 0 }) {
   return (
     <div className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg shadow-sm animate-fadeIn">
       {/* Animated spinner */}
-      <div className="relative w-10 h-10 flex-shrink-0">
+      <div className="relative w-10 h-10 shrink-0">
         <div className="absolute inset-0 border-4 border-slate-200 rounded-full"></div>
         <div 
           className="absolute inset-0 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin"
@@ -31,7 +31,7 @@ export default function FileUploadLoader({ fileName, progress = 0 }) {
         {/* Progress bar */}
         <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
           <div 
-            className="h-full bg-gradient-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-300 ease-out"
+            className="h-full bg-linear-to-r from-indigo-500 to-indigo-600 rounded-full transition-all duration-300 ease-out"
             style={{ width: `${progress}%` }}
           >
             <div className="h-full w-full bg-white/30 animate-shimmer"></div>
