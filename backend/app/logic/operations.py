@@ -261,6 +261,16 @@ def op_add_unique(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str
 
 def op_assert(data: Dict[str, Any], path: List[str], equals: Any = None, exists: bool = None) -> Dict[str, Any]: # need to study in depth.
     """Assert operation: Validate a condition without modifying data."""
+    # Focus on it. mybe bug here.
+    """Design intent (why this is written this way)
+        This function is designed to:
+        Be read-only
+        Fail fast and loudly
+        Provide human-friendly error messages
+        Work as part of a declarative “operation” system
+        Avoid duplicated path-traversal logic
+        It’s closer to schema validation than mutation.
+        """
     if exists is not None:
         try:
             _get_value_at_path(data, path)
