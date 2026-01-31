@@ -6,7 +6,7 @@ Stores intents temporarily before user confirmation.
 
 import uuid
 from typing import Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 from app.models.api_models import OperationSpec
 import asyncio
 import logging
@@ -22,11 +22,11 @@ class PendingIntent:
         self.session_id = session_id
         self.operations = operations
         self.intent_summary = intent_summary
-        self.created_at = datetime.utcnow()
-    
-    def is_expired(self, timeout_seconds: int = 300) -> bool:
+        self.created_at = datetime.now(timezone.utc)    
+        
+    def is_expired(self, timeout_seconds: int = 500) -> bool:
         """Check if intent has expired"""
-        age = datetime.utcnow() - self.created_at
+        age = datetime.now(timezone.utc) - self.created_at
         return age.total_seconds() > timeout_seconds
 
 
