@@ -13,7 +13,9 @@ from app.models.api_models import (
     BatchOperationRequest,
     ToolsResponse
 )
-from app.core import db, utils, schema, operations, version_manager
+from app.core import db, version_manager
+from app.logic import utils, schema
+from app.logic import operations
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -62,7 +64,7 @@ async def apply_operation_endpoint(request: OperationRequest):
         
     except db.SessionNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    except operations.OperationError as e:
+    except operations.CRUDError as e:
         logger.error(f"Operation failed: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -113,7 +115,7 @@ async def apply_batch_operations(request: BatchOperationRequest):
         
     except db.SessionNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
-    except operations.OperationError as e:
+    except operations.CRUDError as e:
         logger.error(f"Batch operation failed: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except Exception as e:
@@ -124,8 +126,9 @@ async def apply_batch_operations(request: BatchOperationRequest):
 @router.get("/tools", response_model=ToolsResponse)
 async def get_available_tools():
     """
-    Get list of available operation tools.
+    Get list of available CRUD operation tools.
+    Returns the 4 primitive operations: CREATE, READ, UPDATE, DELETE
     """
     return ToolsResponse(
-        tools=list(operations.OPERATIONS.keys())
+        tools=["CREATE", "READ", "UPDATE", "DELETE"]
     )

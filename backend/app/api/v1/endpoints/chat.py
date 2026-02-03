@@ -16,7 +16,8 @@ from app.models.api_models import (
 )
 from app.services.llm_intent import llm_service
 from app.services.intent_guard import intent_guard
-from app.core import db, utils, schema, operations, version_manager
+from app.core import db, version_manager
+from app.logic import utils, schema, operations
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -110,9 +111,6 @@ async def confirm_intent(request: ChatConfirmRequest):
         # Validate pre-operation
         schema.validate_domain_pack(content)
         
-        # Ensure proper structure before applying operations
-        content = utils.initialize_domain_pack(content)
-        
         # Apply operations as a batch
         operations_list = [op.model_dump(exclude_none=True) for op in intent.operations]
         new_content = operations.apply_batch(content, operations_list)
@@ -143,6 +141,9 @@ async def confirm_intent(request: ChatConfirmRequest):
         
     except db.SessionNotFoundError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
+    except jsonschema.ValidationError as e:
+        logger.error(f"Validation failed: {str(e)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
     except operations.OperationError as e:
         logger.error(f"Operation failed: {str(e)}")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

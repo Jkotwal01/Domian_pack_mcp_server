@@ -4,10 +4,9 @@ API Models (Pydantic DTOs) for Domain Pack Backend
 All request/response models for the FastAPI endpoints.
 """
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from typing import Dict, Any, List, Optional
 from datetime import datetime
-import uuid
 
 
 # ============================================================================
@@ -52,14 +51,35 @@ class ChatIntentRequest(BaseModel):
 
 
 class OperationSpec(BaseModel):
-    """Structured operation specification"""
-    action: str = Field(..., description="Operation action: add, replace, delete, etc.")
-    path: List[str] = Field(..., description="Path in domain pack structure")
-    value: Optional[Any] = Field(None, description="Value for the operation")
-    updates: Optional[Dict[str, Any]] = Field(None, description="Updates for 'update' action")
-    strategy: Optional[str] = Field(None, description="Strategy for 'merge' action")
-    equals: Optional[Any] = Field(None, description="Expected value for 'assert' action")
-    exists: Optional[bool] = Field(None, description="Existence check for 'assert' action")
+    """Structured operation specification for CRUD operations"""
+    # Support both 'op' (new CRUD format) and 'action' (legacy) - at least one required
+    op: Optional[str] = Field(None, description="CRUD operation: CREATE, READ, UPDATE, or DELETE")
+    action: Optional[str] = Field(None, description="Legacy operation action (deprecated, use 'op')")
+    
+    path: List[str] = Field(..., description="Path in domain pack structure as list of strings")
+    value: Optional[Any] = Field(None, description="Value for CREATE and UPDATE operations")
+    
+    # Legacy fields (kept for backward compatibility)
+    updates: Optional[Dict[str, Any]] = Field(None, description="Legacy: not used in CRUD operations")
+    strategy: Optional[str] = Field(None, description="Legacy: not used in CRUD operations")
+    equals: Optional[Any] = Field(None, description="Legacy: not used in CRUD operations")
+    exists: Optional[bool] = Field(None, description="Legacy: not used in CRUD operations")
+    
+    @model_validator(mode='after')
+    def validate_op_or_action(self):
+        """Ensure at least one of 'op' or 'action' is provided"""
+        if not self.op and not self.action:
+            raise ValueError("Either 'op' or 'action' field must be provided")
+        
+        # If action is provided but not op, copy action to op
+        if self.action and not self.op:
+            self.op = self.action
+        
+        # If op is provided but not action, copy op to action for backward compatibility
+        if self.op and not self.action:
+            self.action = self.op
+        
+        return self
 
 
 class ChatIntentResponse(BaseModel):

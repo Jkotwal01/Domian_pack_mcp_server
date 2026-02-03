@@ -14,6 +14,9 @@ export default function Sidebar({
   currentVersion = null,
   onRollback = () => {},
   onDownload = () => {},
+  onShowDashboard = () => {},
+  onDeleteVersion = () => {},
+  mcpSessionId = null,
 }) {
   const [activeTab, setActiveTab] = useState("chats"); // 'chats' or 'versions'
   const [editingSessionId, setEditingSessionId] = useState(null);
@@ -129,12 +132,17 @@ export default function Sidebar({
                 onNewChat();
                 setActiveTab("chats");
               }}
-              className="w-full bg-slate-700 hover:bg-indigo-600 text-white py-3 px-3 rounded-xl flex items-center justify-center space-x-3 transition-all duration-200 shadow-sm hover:shadow-md group"
+              className={`
+                w-full bg-slate-700 hover:bg-indigo-600 text-white transition-all duration-200 shadow-sm hover:shadow-md group flex items-center justify-center
+                ${isOpen ? "py-3 px-3 rounded-xl space-x-3" : "h-10 w-10 rounded-full mx-auto"}
+              `}
               title="New chat"
             >
-              <span className="p-1 bg-slate-600 group-hover:bg-indigo-500 rounded-full transition-colors flex-shrink-0">
+              <span
+                className={`p-1 bg-slate-600 group-hover:bg-indigo-500 rounded-full transition-colors flex-shrink-0 ${!isOpen && "p-1.5"}`}
+              >
                 <svg
-                  className="w-4 h-4"
+                  className={`${isOpen ? "w-4 h-4" : "w-5 h-5"}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -151,198 +159,224 @@ export default function Sidebar({
             </button>
           </div>
 
-          {/* Tabs */}
-          {isOpen && (
-            <div className="px-3 pt-4 flex space-x-1">
+          {/* Stats Shortcut (Only when collapsed) */}
+          {!isOpen && (
+            <div className="px-3 mb-2 flex flex-col items-center">
               <button
-                onClick={() => setActiveTab("chats")}
-                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activeTab === "chats" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-700"}`}
+                onClick={() => {
+                  setActiveTab("dashboard");
+                  onShowDashboard();
+                }}
+                className="h-10 w-10 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-400 hover:text-indigo-400 flex items-center justify-center transition-all"
+                title="View Stats"
               >
-                Chats
-              </button>
-              <button
-                onClick={() => setActiveTab("versions")}
-                className={`flex-1 py-1.5 text-[10px] font-bold uppercase tracking-wider rounded-md transition-all ${activeTab === "versions" ? "bg-indigo-600 text-white" : "text-slate-400 hover:bg-slate-700"}`}
-              >
-                Versions
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
               </button>
             </div>
           )}
 
-          {/* History List - Only show when expanded */}
-          {isOpen && activeTab === "chats" && (
-            <div className="flex-1 overflow-y-auto px-4 py-2 mt-2 space-y-2 scrollbar-thin scrollbar-thumb-slate-700">
-              {sessions.length > 0 ? (
-                <>
-                  <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 ml-2">
-                    Recent
-                  </h3>
-                  <ul className="space-y-1">
-                    {sessions.map((session) => (
-                      <li
-                        key={session.id}
-                        className={`group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
-                          session.id === activeSessionId
-                            ? "bg-slate-700 text-slate-100"
-                            : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-100"
-                        }`}
-                        onClick={() => {
-                          onSelectSession(session.id);
-                          setActiveTab("chats");
-                          // On mobile, close sidebar after selection
-                          if (window.innerWidth < 768) toggleSidebar();
-                        }}
-                      >
-                        <div className="flex items-center space-x-3 flex-1 min-w-0">
-                          <svg
-                            className="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-slate-400"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                            />
-                          </svg>
+          {/* Scrollable Content Area */}
+          <div className="flex-1 overflow-hidden flex flex-col">
+            {/* Tabs */}
+            {isOpen && (
+              <div className="px-3 pt-4 flex space-x-1">
+                <button
+                  onClick={() => setActiveTab("chats")}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === "chats" ? "bg-slate-700 text-indigo-400 border border-indigo-500/30" : "text-slate-500 hover:bg-slate-700/50 hover:text-slate-300"}`}
+                >
+                  Chats
+                </button>
+                <button
+                  onClick={() => setActiveTab("versions")}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === "versions" ? "bg-slate-700 text-indigo-400 border border-indigo-500/30" : "text-slate-500 hover:bg-slate-700/50 hover:text-slate-300"}`}
+                >
+                  History
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab("dashboard");
+                    onShowDashboard();
+                  }}
+                  className={`flex-1 py-2 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-all ${activeTab === "dashboard" ? "bg-slate-700 text-indigo-400 border border-indigo-500/30" : "text-slate-500 hover:bg-slate-700/50 hover:text-slate-300"}`}
+                >
+                  Stats
+                </button>
+              </div>
+            )}
 
-                          {editingSessionId === session.id ? (
-                            <input
-                              type="text"
-                              value={editTitle}
-                              onChange={(e) => setEditTitle(e.target.value)}
-                              onBlur={() => handleRename(session.id)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") handleRename(session.id);
-                                if (e.key === "Escape") {
-                                  setEditingSessionId(null);
-                                  setEditTitle("");
+            {/* History List - Only show when expanded */}
+            {activeTab === "chats" && isOpen && (
+              <div className="flex-1 overflow-y-auto px-4 py-2 mt-2 space-y-2 custom-scrollbar">
+                {sessions.length > 0 ? (
+                  <>
+                    <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3 ml-2">
+                      Recent
+                    </h3>
+                    <ul className="space-y-1">
+                      {sessions.map((session) => (
+                        <li
+                          key={session.id}
+                          className={`group flex items-center justify-between p-2.5 rounded-lg cursor-pointer transition-colors ${
+                            session.id === activeSessionId
+                              ? "bg-slate-700 text-slate-100"
+                              : "text-slate-400 hover:bg-slate-700/50 hover:text-slate-100"
+                          }`}
+                          onClick={() => {
+                            if (editingSessionId === session.id) return;
+                            onSelectSession(session.id);
+                            setActiveTab("chats");
+                            if (window.innerWidth < 768) toggleSidebar();
+                          }}
+                        >
+                          <div className="flex items-center space-x-3 flex-1 min-w-0">
+                            <svg
+                              className="w-4 h-4 flex-shrink-0 text-slate-500 group-hover:text-slate-400"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                              />
+                            </svg>
+
+                            {editingSessionId === session.id ? (
+                              <input
+                                type="text"
+                                value={editTitle}
+                                onChange={(e) => setEditTitle(e.target.value)}
+                                onBlur={() => handleRename(session.id)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter")
+                                    handleRename(session.id);
+                                  if (e.key === "Escape") {
+                                    setEditingSessionId(null);
+                                    setEditTitle("");
+                                  }
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex-1 bg-slate-600 text-white text-xs px-2 py-1 rounded outline-none focus:ring-2 focus:ring-indigo-500"
+                                autoFocus
+                              />
+                            ) : (
+                              <div className="flex-1 min-w-0">
+                                <span className="text-sm truncate block">
+                                  {session.title}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Action Buttons (Visible on hover) */}
+                          <div
+                            className={`flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${editingSessionId === session.id ? "hidden" : "flex"}`}
+                          >
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                startEditing(session);
+                              }}
+                              className="p-1 hover:bg-slate-600 rounded text-slate-500 hover:text-white"
+                              title="Rename"
+                            >
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (
+                                  window.confirm(
+                                    "Delete this entire chat session and all versions?",
+                                  )
+                                ) {
+                                  onDeleteSession(session.id);
                                 }
                               }}
-                              onClick={(e) => e.stopPropagation()}
-                              className="flex-1 bg-slate-600 text-white text-sm px-2 py-1 rounded outline-none focus:ring-2 focus:ring-indigo-500"
-                              autoFocus
-                            />
-                          ) : (
-                            <div className="flex-1 min-w-0">
-                              <span className="text-sm truncate block">
-                                {session.title}
-                              </span>
-                              <span className="text-xs text-slate-500">
-                                {formatDate(session.updatedAt)}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Action buttons */}
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              startEditing(session);
-                            }}
-                            className="p-1 hover:bg-slate-600 rounded"
-                            title="Rename"
-                          >
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
+                              className="p-1 hover:bg-red-600 rounded text-slate-500 hover:text-white"
+                              title="Delete Chat"
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDownload();
-                            }}
-                            className="p-1 hover:bg-emerald-600 rounded text-slate-400 hover:text-white"
-                            title="Download YAML"
-                          >
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                              />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm("Delete this chat?")) {
-                                onDeleteSession(session.id);
-                              }
-                            }}
-                            className="p-1 hover:bg-red-600 rounded"
-                            title="Delete"
-                          >
-                            <svg
-                              className="w-3 h-3"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                              />
-                            </svg>
-                          </button>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <div className="text-center text-slate-500 text-sm py-8">
-                  No chat sessions yet.
-                  <br />
-                  Start a new chat!
-                </div>
-              )}
-            </div>
-          )}
+                              <svg
+                                className="w-3 h-3"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <div className="text-center text-slate-500 text-sm py-8 italic mt-10">
+                    No chats yet
+                  </div>
+                )}
+              </div>
+            )}
 
-          {/* Versions List */}
-          {isOpen && activeTab === "versions" && (
-            <VersionHistory
-              versions={versions}
-              activeVersion={currentVersion}
-              onRollback={onRollback}
-            />
-          )}
+            {/* Versions List */}
+            {activeTab === "versions" && isOpen && (
+              <VersionHistory
+                versions={versions}
+                activeVersion={currentVersion}
+                onRollback={onRollback}
+                sessionId={mcpSessionId}
+                onDeleteVersion={onDeleteVersion}
+              />
+            )}
+          </div>
 
-          {/* User Profile */}
-          <div className="p-3 border-t border-slate-700 bg-slate-800/50">
-            <div className="flex items-center space-x-3 cursor-pointer hover:bg-slate-700 p-2 rounded-lg transition-colors">
+          {/* User Profile (STUCK TO BOTTOM) */}
+          <div className="mt-auto p-3 border-t border-slate-700 bg-slate-800/80">
+            <div
+              className={`flex items-center cursor-pointer hover:bg-slate-700 rounded-lg transition-colors ${isOpen ? "p-2 space-x-3" : "py-2 justify-center"}`}
+            >
               <div className="w-9 h-9 rounded-full bg-linear-to-tr from-indigo-500 to-purple-500 flex items-center justify-center text-white font-medium text-sm shadow-sm shrink-0">
-                JD
+                JK
               </div>
               {isOpen && (
-                <div className="flex flex-col">
-                  <span className="text-sm font-medium text-slate-200">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-medium text-slate-200 truncate">
                     Jay Kotwal
                   </span>
-                  <span className="text-xs text-slate-400">Pro Plan</span>
+                  <span className="text-[10px] text-slate-500 uppercase tracking-tighter">
+                    Pro Plan
+                  </span>
                 </div>
               )}
             </div>

@@ -113,9 +113,37 @@ def parse_json(content: str) -> Dict[str, Any]:
 # Serialization
 # ─────────────────────────────────────────────
 
+def _order_domain_pack_fields(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Reorder domain pack fields to ensure name, version, description appear first.
+    This ensures consistent YAML output with metadata at the top.
+    """
+    if not isinstance(data, dict):
+        return data
+    
+    # Define the desired order for top-level fields
+    field_order = ["name", "description", "version"]
+    
+    # Create ordered dict with priority fields first
+    ordered = {}
+    
+    # Add priority fields in order (if they exist)
+    for field in field_order:
+        if field in data:
+            ordered[field] = data[field]
+    
+    # Add remaining fields in their original order
+    for key, value in data.items():
+        if key not in field_order:
+            ordered[key] = value
+    
+    return ordered
+
+
 def serialize_yaml(data: Dict[str, Any]) -> str:
     """
     Serialize dictionary into YAML (format-stable).
+    Ensures name, version, description appear first.
     """
     if not isinstance(data, dict):
         raise SerializationError(
@@ -123,8 +151,11 @@ def serialize_yaml(data: Dict[str, Any]) -> str:
         )
 
     try:
+        # Reorder fields to ensure metadata appears first
+        ordered_data = _order_domain_pack_fields(data)
+        
         stream = StringIO()
-        _yaml.dump(data, stream)
+        _yaml.dump(ordered_data, stream)
         return stream.getvalue()
     except Exception as e:
         raise SerializationError(f"Failed to serialize YAML: {e}")
@@ -239,3 +270,57 @@ def calculate_diff(
     result["summary"]["has_changes"] = True
 
     return result
+
+
+# ─────────────────────────────────────────────
+# File-type-safe helpers
+# ─────────────────────────────────────────────
+
+def validate_file_type(file_type: str) -> str:
+    """
+    Normalize and validate supported file types.
+    Supported: 'yaml', 'json'
+    """
+    if not file_type:
+        raise ValueError("File type must be specified")
+    
+    ft = file_type.lower().strip()
+    if ft.endswith('.yaml') or ft.endswith('.yml') or ft == 'yaml':
+        return 'yaml'
+    if ft.endswith('.json') or ft == 'json':
+        return 'json'
+    
+    raise ValueError(f"Unsupported file type: {file_type}. Use 'yaml' or 'json'.")
+
+
+def detect_file_type(filename: str) -> str:
+    """
+    Infer file type from filename extension.
+    Defaults to 'yaml' if unknown but extension suggests it, otherwise raises ValueError.
+    """
+    if not filename:
+        return 'yaml'  # Default for unsaved content
+    
+    fn = filename.lower()
+    if fn.endswith(('.yaml', '.yml')):
+        return 'yaml'
+    if fn.endswith('.json'):
+        return 'json'
+    
+    # Default to yaml for domain packs if no clear extension
+    return 'yaml'
+
+
+def parse_content(content: str, file_type: str) -> Dict[str, Any]:
+    """
+    Unified content parser.
+    Dispatches to specific type handlers.
+    """
+    ft = validate_file_type(file_type)
+    
+    if ft == 'yaml':
+        return parse_yaml(content)
+    elif ft == 'json':
+        return parse_json(content)
+    
+    raise ParseError(f"Cannot parse content of type: {file_type}")

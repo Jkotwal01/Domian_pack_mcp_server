@@ -6,6 +6,7 @@ It enforces strict validation for all 14 top-level sections.
 """
 
 import jsonschema
+from jsonschema import Draft7Validator
 from typing import Dict, Any, List
 
 DOMAIN_PACK_SCHEMA = {

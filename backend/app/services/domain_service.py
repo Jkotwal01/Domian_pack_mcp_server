@@ -4,11 +4,11 @@ from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import desc
 
 from app.db.models import Session, Version
-from app.core.exceptions import SessionNotFoundError, VersionNotFoundError
+from app.core.db import SessionNotFoundError, VersionNotFoundError
 from app.logic.schema import validate_domain_pack
-from app.logic.operations import apply_batch
+from app.logic.operations import apply_batch, CRUDError
 from app.logic.utils import calculate_diff
-from app.schemas.api_requests import CreateSessionRequest
+from app.models.api_models import SessionCreateRequest
 
 class DomainService:
     def __init__(self, db: DBSession):
@@ -86,8 +86,8 @@ class DomainService:
         # Apply Operations (Pure)
         try:
             new_content = apply_batch(current_content, operations)
-        except Exception as e:
-            # Re-raise as ValueError or custom exception for API to handle
+        except CRUDError as e:
+            # Re-raise as ValueError for API to handle
             raise ValueError(f"Operation failed: {str(e)}")
 
         # Validate New Content (Schema)

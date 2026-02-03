@@ -8,7 +8,8 @@ from fastapi.responses import Response
 import logging
 
 from app.models.api_models import ExportResponse
-from app.core import db, utils
+from app.core import db
+from app.logic import utils
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -57,7 +58,8 @@ async def download_domain_pack(
     format: str = Query("yaml", description="Export format: 'yaml' or 'json'")
 ):
     """
-    Download domain pack as a file.
+    Download domain pack as a file with dynamic filename.
+    Filename format: DomainName_version.extension (e.g., Legal_1.0.5.yaml)
     """
     try:
         # Validate format
@@ -67,11 +69,20 @@ async def download_domain_pack(
         version_data = db.get_latest_version(session_id)
         content = version_data["content"]
         
+        # Extract domain name and version for filename
+        domain_name = content.get("name", "domain_pack")
+        version = content.get("version", "1.0.0")
+        
+        # Clean domain name for filename (replace spaces with underscores, remove special chars)
+        clean_domain_name = domain_name.replace(" ", "_").replace("-", "_")
+        # Remove any characters that aren't alphanumeric or underscore
+        clean_domain_name = ''.join(c for c in clean_domain_name if c.isalnum() or c == '_')
+        
         # Serialize content
         serialized = utils.serialize_content(content, format)
         
-        # Determine filename and media type
-        filename = f"domain_pack.{format}"
+        # Generate dynamic filename: DomainName_version.extension
+        filename = f"{clean_domain_name}_{version}.{format}"
         media_type = "application/x-yaml" if format == "yaml" else "application/json"
         
         return Response(
@@ -89,3 +100,4 @@ async def download_domain_pack(
     except Exception as e:
         logger.error(f"Download failed: {str(e)}")
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+

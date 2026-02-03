@@ -10,7 +10,8 @@ import os
 # Add parent directory to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.core import schema, operations, utils, version_manager
+from app.core import version_manager
+from app.logic import schema, utils, operations
 
 def test_schema_validation():
     """Test schema validation"""

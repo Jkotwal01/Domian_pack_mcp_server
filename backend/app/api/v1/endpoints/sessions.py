@@ -9,7 +9,8 @@ import logging
 import jsonschema
 
 from app.models.api_models import SessionCreateRequest, SessionResponse
-from app.core import db, utils, schema, operations
+from app.core import db
+from app.logic import utils, schema, operations
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

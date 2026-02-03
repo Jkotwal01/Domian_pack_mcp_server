@@ -164,10 +164,6 @@ def create_session(initial_content: Dict[str, Any], file_type: str, metadata: Op
         
         session_id = str(uuid.uuid4())
         
-        # Ensure full schema structure
-        from app.core import utils
-        initial_content = utils.initialize_domain_pack(initial_content)
-        
         # Insert session
         cursor.execute(
             """
@@ -455,3 +451,201 @@ def delete_session(session_id: str):
             conn.close()
 
 
+def delete_version(session_id: str, version: int):
+    """
+    Delete a specific version from a session.
+    If the current version is deleted, updates the session to the next highest version.
+    
+    Args:
+        session_id: Session UUID
+        version: Version number to delete
+        
+    Raises:
+        VersionNotFoundError: If version doesn't exist
+        DatabaseError: If deletion fails or attempted to delete last version
+    """
+    conn = None
+    try:
+        conn = create_connection()
+        cursor = conn.cursor()
+        
+        # Check if version exists and if it's the only one
+        cursor.execute(
+            "SELECT COUNT(*), (SELECT current_version FROM sessions WHERE session_id = %s) FROM versions WHERE session_id = %s",
+            (session_id, session_id)
+        )
+        result = cursor.fetchone()
+        if not result or result[0] == 0:
+            raise VersionNotFoundError(f"No versions found for session {session_id}")
+        
+        total_versions = result[0]
+        current_version = result[1]
+        
+        if total_versions <= 1:
+            raise DatabaseError("Cannot delete the only version of a session. Delete the session instead.")
+        
+        # Delete the version
+        cursor.execute(
+            "DELETE FROM versions WHERE session_id = %s AND version = %s",
+            (session_id, version)
+        )
+        
+        if cursor.rowcount == 0:
+            raise VersionNotFoundError(f"Version {version} not found for session {session_id}")
+            
+        # If we deleted the current version, update the session's current_version
+        if version == current_version:
+            cursor.execute(
+                "SELECT version FROM versions WHERE session_id = %s ORDER BY version DESC LIMIT 1",
+                (session_id,)
+            )
+            new_latest = cursor.fetchone()[0]
+            cursor.execute(
+                "UPDATE sessions SET current_version = %s, updated_at = NOW() WHERE session_id = %s",
+                (new_latest, session_id)
+            )
+            
+        conn.commit()
+        
+    except psycopg2.Error as e:
+        if conn:
+            conn.rollback()
+        raise DatabaseError(f"Failed to delete version: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+# ============================================================================
+# Dashboard Functions
+# ============================================================================
+
+def list_all_sessions() -> List[Dict[str, Any]]:
+    """
+    List all sessions with metadata.
+    
+    Returns:
+        List of session data with version counts
+        
+    Raises:
+        DatabaseError: If retrieval fails
+    """
+    conn = None
+    try:
+        conn = create_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cursor.execute("""
+            SELECT 
+                s.session_id,
+                s.created_at,
+                s.updated_at,
+                s.current_version,
+                s.file_type,
+                s.metadata,
+                COUNT(v.version) as total_versions
+            FROM sessions s
+            LEFT JOIN versions v ON s.session_id = v.session_id
+            GROUP BY s.session_id, s.created_at, s.updated_at, s.current_version, s.file_type, s.metadata
+            ORDER BY s.updated_at DESC
+        """)
+        
+        results = cursor.fetchall()
+        return [dict(r) for r in results]
+        
+    except psycopg2.Error as e:
+        raise DatabaseError(f"Failed to list all sessions: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_all_latest_versions() -> List[Dict[str, Any]]:
+    """
+    Get the latest version from each session.
+    
+    Returns:
+        List of latest versions with session info
+        
+    Raises:
+        DatabaseError: If retrieval fails
+    """
+    conn = None
+    try:
+        conn = create_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        cursor.execute("""
+            SELECT 
+                v.session_id,
+                v.version,
+                v.content,
+                v.reason,
+                v.created_at,
+                s.file_type
+            FROM versions v
+            INNER JOIN sessions s ON v.session_id = s.session_id
+            WHERE v.version = s.current_version
+            ORDER BY v.created_at DESC
+        """)
+        
+        results = cursor.fetchall()
+        return [dict(r) for r in results]
+        
+    except psycopg2.Error as e:
+        raise DatabaseError(f"Failed to get all latest versions: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
+
+
+def get_session_with_versions(session_id: str) -> Dict[str, Any]:
+    """
+    Get session with all its versions.
+    
+    Args:
+        session_id: Session UUID
+        
+    Returns:
+        Dictionary with session info and list of versions
+        
+    Raises:
+        SessionNotFoundError: If session doesn't exist
+        DatabaseError: If retrieval fails
+    """
+    conn = None
+    try:
+        conn = create_connection()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        
+        # Get session info
+        cursor.execute("""
+            SELECT session_id, created_at, updated_at, current_version, file_type, metadata
+            FROM sessions
+            WHERE session_id = %s
+        """, (session_id,))
+        
+        session = cursor.fetchone()
+        if not session:
+            raise SessionNotFoundError(f"Session not found: {session_id}")
+        
+        # Get all versions
+        cursor.execute("""
+            SELECT version, content, diff, reason, created_at
+            FROM versions
+            WHERE session_id = %s
+            ORDER BY version DESC
+        """, (session_id,))
+        
+        versions = cursor.fetchall()
+        
+        result = dict(session)
+        result['versions'] = [dict(v) for v in versions]
+        
+        return result
+        
+    except psycopg2.Error as e:
+        raise DatabaseError(f"Failed to get session with versions: {str(e)}")
+    finally:
+        if conn:
+            conn.close()

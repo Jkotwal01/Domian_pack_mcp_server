@@ -84,6 +84,33 @@ def parse_json(content: str) -> Dict[str, Any]:
         raise ParseError(f"Failed to parse JSON: {str(e)}")
 
 
+def _order_domain_pack_fields(data: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Reorder domain pack fields to ensure name, description, version appear first.
+    This ensures consistent YAML output with metadata at the top.
+    """
+    if not isinstance(data, dict):
+        return data
+    
+    # Define the desired order for top-level fields
+    field_order = ["name", "description", "version"]
+    
+    # Create ordered dict with priority fields first
+    ordered = {}
+    
+    # Add priority fields in order (if they exist)
+    for field in field_order:
+        if field in data:
+            ordered[field] = data[field]
+    
+    # Add remaining fields in their original order
+    for key, value in data.items():
+        if key not in field_order:
+            ordered[key] = value
+    
+    return ordered
+
+
 def serialize_yaml(data: Dict[str, Any]) -> str:
     """
     Serialize dictionary to YAML with formatting preservation.
@@ -109,7 +136,10 @@ def serialize_yaml(data: Dict[str, Any]) -> str:
             Capturing output as a string
             Returning serialized content
             Testing or further processing"""
-        yaml.dump(data, stream) # Converts the Python object data into YAML format and writes it to the stream.
+        # Reorder fields to ensure metadata appears first
+        ordered_data = _order_domain_pack_fields(data)
+        
+        yaml.dump(ordered_data, stream) # Converts the Python object data into YAML format and writes it to the stream.
         return stream.getvalue()
     except Exception as e:
         raise SerializationError(f"Failed to serialize to YAML: {str(e)}")

@@ -8,7 +8,8 @@ from fastapi import APIRouter, HTTPException, status
 import logging
 
 from app.models.api_models import RollbackRequest, RollbackResponse
-from app.core import db, utils, schema
+from app.core import db
+from app.logic import utils, schema
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

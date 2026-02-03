@@ -1,7 +1,7 @@
 # Domain Pack MCP Server Dependencies
 
 # FastMCP - MCP server framework
-# fastmcp>=0.1.0
+fastmcp==2.11.3
 
 # Schema validation
 jsonschema>=4.17.0

@@ -6,13 +6,12 @@ NO database access, NO schema validation, NO YAML parsing - only pure transforma
 
 Supported operations:
 1. add - Add a value to a path
-2. replace - Replace a value at a path
-3. delete - Delete a value at a path
-4. update - Update fields in an object
-5. merge - Merge objects or arrays
-6. add_unique - Add only if value doesn't exist
-7. batch - Execute multiple operations atomically
-8. assert - Assert a condition (validation)
+2. delete - Delete a value at a path
+3. update - Update fields in an object
+4. merge - Merge objects or arrays
+5. add_unique - Add only if value doesn't exist
+6. batch - Execute multiple operations atomically
+7. assert - Assert a condition (validation)
 """
 
 import copy
@@ -24,26 +23,42 @@ class OperationError(Exception):
     pass
 
 
-def _get_value_at_path(data: Dict[str, Any], path: List[str]) -> Any:
+def _get_value_at_path(data: Dict[str, Any], path: List[str], auto_create: bool = False) -> Any:
     """
     Get value at the specified path in the data structure.
     
     Args:
         data: The data structure
         path: List of keys representing the path
+        auto_create: If True, create missing intermediate containers
         
     Returns:
         Value at the path
         
     Raises:
-        OperationError: If path doesn't exist
+        OperationError: If path doesn't exist and auto_create is False
     """
     current = data
     
     for i, key in enumerate(path):
         if isinstance(current, dict):
             if key not in current:
-                raise OperationError(f"Path not found: {' -> '.join(path[:i+1])}")
+                if auto_create:
+                    # Look ahead to decide whether to create a dict or list
+                    if i + 1 < len(path):
+                        next_key = path[i+1]
+                        try:
+                            int(next_key)
+                            current[key] = []
+                        except ValueError:
+                            current[key] = {}
+                    else:
+                        # Leaf level - if we're here with auto_create=True 
+                        # for getting parent, we need to create something.
+                        # Usually parent navigation asks for path[:-1].
+                        current[key] = {}
+                else:
+                    raise OperationError(f"Path not found: {' -> '.join(path[:i+1])}")
             current = current[key]
         elif isinstance(current, list):
             try:
@@ -198,7 +213,7 @@ def op_add(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:
             result[key] = value
     else:
         # Navigate to parent
-        parent = _get_value_at_path(result, path[:-1])
+        parent = _get_value_at_path(result, path[:-1], auto_create=True)
         final_key = path[-1]
         
         if isinstance(parent, dict):
@@ -220,24 +235,7 @@ def op_add(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:
 
 
 
-def op_replace(data: Dict[str, Any], path: List[str], value: Any) -> Dict[str, Any]:
-    """
-    Replace operation: Replace value at path.
-    
-    Args:
-        data: Domain pack data
-        path: Path to replace
-        value: New value
-        
-    Returns:
-        Modified data (new copy)
-        
-    Raises:
-        OperationError: If path doesn't exist
-    """
-    result = copy.deepcopy(data)
-    _set_value_at_path(result, path, value)
-    return result
+
 
 
 def op_delete(data: Dict[str, Any], path: List[str]) -> Dict[str, Any]:
@@ -428,7 +426,6 @@ def op_assert(data: Dict[str, Any], path: List[str], equals: Any = None, exists:
 # Operation registry
 OPERATIONS = {
     "add": op_add,
-    "replace": op_replace,
     "delete": op_delete,
     "update": op_update,
     "merge": op_merge,
@@ -443,9 +440,9 @@ def apply_operation(data: Dict[str, Any], operation: Dict[str, Any]) -> Dict[str
     
     Operation format:
     {
-        "action": "add|replace|delete|update|merge|add_unique|assert",
+        "action": "add|delete|update|merge|add_unique|assert",
         "path": ["key1", "key2", ...],
-        "value": <value>,  # for add, replace, update, merge, add_unique
+        "value": <value>,  # for add, update, merge, add_unique
         "updates": {...},  # for update
         "equals": <value>, # for assert
         "exists": true/false  # for assert
@@ -482,11 +479,6 @@ def apply_operation(data: Dict[str, Any], operation: Dict[str, Any]) -> Dict[str
         if action == "add":
             if "value" not in operation:
                 raise OperationError("'add' operation requires 'value' field")
-            return op_func(data, path, operation["value"])
-        
-        elif action == "replace":
-            if "value" not in operation:
-                raise OperationError("'replace' operation requires 'value' field")
             return op_func(data, path, operation["value"])
         
         elif action == "delete":

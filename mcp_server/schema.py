@@ -20,7 +20,7 @@ It enforces strict validation for all 14 top-level sections:
 """
 
 import jsonschema
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
 # Complete JSON Schema for Domain Pack
@@ -403,3 +403,92 @@ def validate_domain_pack(data: Dict[str, Any]) -> None:
         ValueError: If data is invalid
     """
     validator.validate(data)
+
+
+class ValidationError(Exception):
+    """Raised when validation fails"""
+    pass
+
+
+def validate_schema(data: Dict[str, Any], schema: Optional[Dict[str, Any]] = None) -> None:
+    """
+    Validate data against schema.
+    
+    Args:
+        data: Data to validate
+        schema: Schema to validate against (uses DOMAIN_PACK_SCHEMA if None)
+        
+    Raises:
+        ValidationError: If validation fails
+    """
+    if schema is None:
+        schema = DOMAIN_PACK_SCHEMA
+    
+    try:
+        jsonschema.validate(data, schema)
+    except jsonschema.ValidationError as e:
+        path = " -> ".join(str(p) for p in e.path) if e.path else "root"
+        raise ValidationError(f"Validation failed at {path}: {e.message}")
+    except Exception as e:
+        raise ValidationError(f"Validation error: {str(e)}")
+
+
+def validate_pre_mutation(data: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate document before mutation.
+    
+    Args:
+        data: Document to validate
+        schema: Schema to validate against
+        
+    Returns:
+        Validation result with errors and warnings
+    """
+    errors = []
+    warnings = []
+    
+    try:
+        validate_schema(data, schema)
+    except ValidationError as e:
+        errors.append({
+            "code": "PRE_VALIDATION_FAILED",
+            "message": str(e),
+            "phase": "pre_mutation"
+        })
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings
+    }
+
+
+def validate_post_mutation(data: Dict[str, Any], schema: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate document after mutation.
+    
+    Args:
+        data: Document to validate
+        schema: Schema to validate against
+        
+    Returns:
+        Validation result with errors and warnings
+    """
+    errors = []
+    warnings = []
+    
+    try:
+        validate_schema(data, schema)
+    except ValidationError as e:
+        errors.append({
+            "code": "POST_VALIDATION_FAILED",
+            "message": str(e),
+            "phase": "post_mutation"
+        })
+    
+    return {
+        "valid": len(errors) == 0,
+        "errors": errors,
+        "warnings": warnings
+    }
+

@@ -7,21 +7,22 @@ LLM is used ONLY for intent extraction, NOT for file manipulation.
 
 import json
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List, Optional
 from app.models.api_models import OperationSpec
 from app.services.llm_providers import BaseLLMProvider, get_llm_provider
 from app.core.config import settings
 
 
-# System prompt for LLM
-SYSTEM_PROMPT = """You translate user intent into structured operations for a domain pack editor.
+# System prompt for LLM - CRUD Operations
+SYSTEM_PROMPT = """You translate user intent into structured CRUD operations for a domain pack editor.
 
 RULES:
 - NEVER edit files directly
 - NEVER assume schema structure
-- ONLY output operations from this list: add, replace, delete, update, merge, add_unique, assert
-- ALWAYS wait for confirmation
+- ONLY use the 4 CRUD operations: CREATE, READ, UPDATE, DELETE
+- ALWAYS wait for confirmation before applying changes
 - If uncertain, ask a clarifying question
+- Use exact operation names (uppercase)
 
 OUTPUT SCHEMA:
 {{
@@ -29,47 +30,179 @@ OUTPUT SCHEMA:
   "message": "string - conversational response for 'suggestion', or summary for 'operation'",
   "operations": [  // ONLY required if type is 'operation'
     {{
-      "action": "add | replace | delete | update | merge | add_unique | assert",
-      "path": ["string"],
-      "value": {{}},
-      "updates": {{}},
-      "strategy": "append",
-      "equals": {{}},
-      "exists": true
+      "op": "CREATE | READ | UPDATE | DELETE",
+      "path": ["key1", "key2", ...],  // List of strings for navigation
+      "value": {{}}  // Only for CREATE and UPDATE
     }}
   ]
 }}
 
 GUIDELINES:
-1. If the user is asking for ideas, enhancements, or "what should I do", set type to "suggestion" and provide a helpful natural language response in "message". Leave "operations" empty or null.
-2. If the user is requesting a specific change (e.g., "Add entity Student", "Update description"), set type to "operation", provide a brief summary in "message", and define the "operations" list.
+1. If user is asking for ideas, enhancements, or "what should I do", set type="suggestion" and provide helpful natural language response in detail as per user request. Leave "operations" empty or null.
+2. If user is requesting a specific change, set type="operation", provide brief summary in "message", and define the "operations" list with appropriate CRUD operations.
 
-AVAILABLE OPERATIONS:
-1. add - Add value to path (for dicts: adds new key, for arrays: appends)
-2. replace - Replace value at path
-3. delete - Delete value at path
-4. update - Update fields in an object
-5. merge - Merge objects or arrays
-6. add_unique - Add value only if it doesn't exist
-7. assert - Assert a condition
+AVAILABLE OPERATIONS (4 primitives):
 
-STRICT SECTION DEFINITIONS (DOMAIN PACK SCHEMA):
-- name (string), description (string), version (semantic version string)
-- entities (array of objects): requires [name, type, attributes (array)]
-- key_terms (array of strings)
-- entity_aliases (object): key=string, value=list of strings
-- extraction_patterns (array of objects): requires [pattern, entity_type, attribute, confidence (0-1)]
-- business_context (object): key=string, value=list of strings
-- relationship_types (array of objects): requires [type, business_context (object)]
-- relationships (array of objects): requires [name, from, to, attributes (array)]
-- business_patterns (array of objects): requires [name, description, stages (array)]
-- reasoning_templates (array of objects): requires [name, steps (object), triggers (array), confidence_threshold]
-- multihop_questions (array of objects): requires [template, examples (array), priority (low|medium|high|critical), reasoning_type]
-- question_templates (object): category_name -> array of objects with [template, priority, expected_answer_type]
-- business_rules (array of objects): requires [name, description, rules (array)]
-- validation_rules (object): complex nesting (key -> key -> list of strings)
+1. CREATE - Create a new key in dict or insert/append to list
+   - For dicts: Creates new key (fails if exists)
+   - For lists: Use "-" as final path element to append, or integer index to insert
+   - Requires: path, value
+   - Example: {{"op": "CREATE", "path": ["entities", "-"], "value": {{"name": "User", "fields": []}}}}
+   - Example: {{"op": "CREATE", "path": ["entities", "0", "fields", "-"], "value": "id"}}
 
-CRITICAL: Sections like 'entities', 'extraction_patterns', 'relationships', 'business_patterns', 'reasoning_templates', 'multihop_questions', and 'business_rules' MUST be ARRAYS. Never use objects/maps for these sections.
+2. READ - Fetch value at path (for validation/debug)
+   - Returns value without modification
+   - Requires: path
+   - Example: {{"op": "READ", "path": ["entities", "0", "name"]}}
+
+3. UPDATE - Replace value at existing path
+   - Path MUST exist (fails if not)
+   - Requires: path, value
+   - Example: {{"op": "UPDATE", "path": ["version"], "value": "2.0.0"}}
+   - Example: {{"op": "UPDATE", "path": ["entities", "0", "name"], "value": "UpdatedName"}}
+
+4. DELETE - Remove key from dict or item from list
+   - Path MUST exist (fails if not)
+   - Requires: path
+   - Example: {{"op": "DELETE", "path": ["entities", "0", "fields", "1"]}}
+
+PATH FORMAT:
+- Always use list of strings: ["key1", "key2", ...]
+- For list indices, use string numbers: ["items", "0", "fields", "2"]
+- To append to list, use "-": ["items", "-"]
+- Empty path [] only valid for READ (returns entire data)
+
+DOMAIN PACK STRUCTURE AND REQUIRED FIELDS:
+
+Root level (REQUIRED fields):
+- name: string (min 1 char)
+- description: string (min 1 char)  
+- version: string (semantic versioning: "1.0.0")
+
+1. entities (array) - REQUIRED fields for each item:
+   - name: string (min 1 char)
+   - type: string (min 1 char)
+   - attributes: array of strings (min 1 item, each min 1 char)
+   - synonyms: array of strings (optional)
+   Example: {{"name": "Student", "type": "STUDENT",  "attributes": ["id", "name", "email"], "synonyms": ["Learner"]}}
+
+2. extraction_patterns (array) - REQUIRED fields for each item:
+   - pattern: string (min 1 char)
+   - entity_type: string (min 1 char)
+   - attribute: string (min 1 char)
+   - confidence: number (0.0 to 1.0)
+   Example: {{"pattern": "student ID: (\\\\d+)", "entity_type": "Student", "attribute": "id", "confidence": 0.95}}
+
+3. key_terms (array) - Simple strings:
+   - Each item: string (min 1 char)
+   Example: ["enrollment", "registration", "course"]
+
+4. reasoning_templates (array) - REQUIRED fields for each item:
+   - name: string (min 1 char)
+   - steps: object with at least 1 property (keys and values are strings)
+   - triggers: array of strings (min 1 item)
+   - confidence_threshold: number (0.0 to 1.0)
+   Example: {{"name": "Enrollment Check", "steps": {{"1": "Verify student", "2": "Check course"}}, "triggers": ["enroll"], "confidence_threshold": 0.8}}
+
+5. relationship_types (array) - REQUIRED fields for each item:
+   - type: string (min 1 char)
+   - business_context: object with at least 1 property (values are booleans)
+   Example: {{"type": "enrolls_in", "business_context": {{"academic": true, "financial": false}}}}
+
+6. entity_aliases (object) - Key-value pairs:
+   - Keys: entity names
+   - Values: arrays of strings (aliases)
+   Example: {{"Student": ["Learner", "Pupil"], "Course": ["Class", "Subject"]}}
+
+7. business_context (object) - Key-value pairs:
+   - Keys: context categories
+   - Values: arrays of strings
+   Example: {{"academic": ["grades", "credits"], "financial": ["tuition", "fees"]}}
+
+8. relationships (array) - REQUIRED fields for each item:
+   - name: string (min 1 char)
+   - from: string (min 1 char) - source entity
+   - to: string (min 1 char) - target entity
+   - attributes: array of strings
+   - synonyms: array of strings (optional)
+   Example: {{"name": "enrolls_in", "from": "Student", "to": "Course", "attributes": ["enrollment_date", "status"], "synonyms": ["registers_for"]}}
+
+9. business_patterns (array) - REQUIRED fields for each item:
+   - name: string (min 1 char)
+   - description: string (min 1 char)
+   - stages: array of strings (min 1 item)
+   - triggers: array of strings (optional)
+   - entities_involved: array of strings (optional)
+   - tags: array of strings (optional)
+   - decision_points: array of strings (optional)
+   Example: {{"name": "Course Registration", "description": "Student enrolls in course", "stages": ["select", "verify", "confirm"], "triggers": ["enroll_request"]}}
+
+10. question_templates (object) - Categories with arrays:
+    - Keys: category names (e.g., "Course", "Student")
+    - Values: arrays of question objects
+    - REQUIRED fields for each question object:
+      * template: string (min 1 char)
+      * priority: string - MUST be one of: "low", "medium", "high", "critical"
+      * expected_answer_type: string (min 1 char)
+      * entity_types: array of strings (optional)
+      * attributes: array of strings (optional)
+      * entity_pairs: array of arrays (optional)
+      * process_types: array of strings (optional)
+      * financial_types: array of strings (optional)
+    Example: {{"Course": [{{"template": "What courses is {{student}} enrolled in?", "priority": "high", "expected_answer_type": "list"}}]}}
+
+11. multihop_questions (array) - REQUIRED fields for each item:
+    - template: string (min 1 char)
+    - examples: array of strings (min 1 item)
+    - priority: string - MUST be one of: "low", "medium", "high", "critical"
+    - reasoning_type: string (min 1 char)
+    Example: {{"template": "Which students are in courses taught by {{professor}}?", "examples": ["Which students are in courses taught by Dr. Smith?"], "priority": "medium", "reasoning_type": "multi-hop"}}
+
+12. business_rules (array) - REQUIRED fields for each item:
+    - name: string (min 1 char)
+    - description: string (min 1 char)
+    - rules: array of strings (min 1 item)
+    Example: {{"name": "Enrollment Limit", "description": "Max students per course", "rules": ["max_students <= 30", "min_students >= 5"]}}
+
+13. validation_rules (object) - Nested objects:
+    - Keys: entity names
+    - Values: objects with validation rules
+      * Keys: field names
+      * Values: arrays of strings (validation rules)
+    Example: {{"Student": {{"email": ["required", "email_format"], "age": ["required", "min:18"]}}}}
+
+CRITICAL VALIDATION RULES:
+1. ALWAYS include ALL required fields when creating objects
+2. priority field MUST be one of: "low", "medium", "high", "critical" (lowercase)
+3. confidence values MUST be between 0.0 and 1.0
+4. version MUST match pattern: "X.Y.Z" (e.g., "1.0.0")
+5. Arrays marked as "min 1 item" MUST have at least one element
+6. Strings marked as "min 1 char" MUST NOT be empty
+7. When creating question_templates, ALWAYS include: template, priority, expected_answer_type
+8. When creating multihop_questions, ALWAYS include: template, examples, priority, reasoning_type
+
+COMMON PATTERNS:
+
+Adding a new entity:
+{{"op": "CREATE", "path": ["entities", "-"], "value": {{"name": "EntityName", "type": "core", "attributes": ["id"], "synonyms": []}}}}
+
+Adding field to entity:
+{{"op": "CREATE", "path": ["entities", "0", "attributes", "-"], "value": "fieldName"}}
+
+Updating entity name:
+{{"op": "UPDATE", "path": ["entities", "0", "name"], "value": "NewName"}}
+
+Removing an entity:
+{{"op": "DELETE", "path": ["entities", "0"]}}
+
+CRITICAL RULES:
+- Use CREATE with "-" to append to arrays
+- Use CREATE with index to insert at specific position
+- Use UPDATE only for existing paths
+- Use DELETE to remove items
+- Always provide complete object structure when creating new items
+- Validate enum values like "priority": "high|medium|low|critical"
+- Version must match semantic versioning (e.g., "1.0.0")
 
 CURRENT SCHEMA:
 {schema_definition}
@@ -178,13 +311,72 @@ class LLMIntentService:
             }
             
             if resp_type == "operation" and operations_data:
+                # Normalize operations to match logic layer format
+                normalized_ops = self._normalize_operations(operations_data, schema_definition)
                 # Convert to list of OperationSpec to validate
-                result["operations"] = [OperationSpec(**op) for op in operations_data]
+                result["operations"] = [OperationSpec(**op) for op in normalized_ops]
             
             return result
             
         except Exception as e:
             raise RuntimeError(f"LLM intent extraction failed: {str(e)}")
+    
+    def _normalize_operations(self, operations_data: List[Dict[str, Any]], schema_definition: Dict[str, Any] = None) -> List[Dict[str, Any]]:
+        """
+        Normalize operations from LLM output to match logic layer format.
+        Ensures all operations use correct action names and structure.
+        Converts ADD_FIELD to UPDATE_FIELD/MERGE_OBJECT if field already exists.
+        
+        Args:
+            operations_data: Raw operations from LLM
+            schema_definition: Current schema to check for existing fields
+            
+        Returns:
+            Normalized operations with correct structure
+        """
+        normalized = []
+        schema_definition = schema_definition or {}
+        
+        for op in operations_data:
+            if not isinstance(op, dict):
+                continue
+                
+            action = op.get("action", "").upper()
+            norm_op = {"action": action}
+            
+            # Copy path (required for all operations) - ensure all elements are strings
+            if "path" in op:
+                raw_path = op["path"] if isinstance(op["path"], list) else [op["path"]]
+                # Convert all path elements to strings (LLM may return integers for array indices)
+                norm_op["path"] = [str(p) for p in raw_path]
+            
+            # Validate operation against CRUD operations
+            valid_ops = {"CREATE", "READ", "UPDATE", "DELETE"}
+            
+            # Check if LLM used "op" (new format) or "action" (old format)
+            op_key = "op" if "op" in op else "action"
+            operation = op.get(op_key, "").upper()
+            
+            if operation not in valid_ops:
+                # Skip invalid operations or log warning
+                continue
+            
+            # Normalize to CRUD format
+            norm_op = {"op": operation}
+            
+            # Copy path (required for all operations except some edge cases)
+            if "path" in op:
+                raw_path = op["path"] if isinstance(op["path"], list) else [op["path"]]
+                # Convert all path elements to strings
+                norm_op["path"] = [str(p) for p in raw_path]
+            
+            # Copy value for CREATE and UPDATE
+            if operation in ["CREATE", "UPDATE"] and "value" in op:
+                norm_op["value"] = op["value"]
+            
+            normalized.append(norm_op)
+        
+        return normalized
     
     async def _complete(self, prompt: str) -> str:
         """

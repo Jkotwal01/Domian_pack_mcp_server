@@ -1,234 +1,369 @@
 """
-Domain Pack MCP Server - Main Entry Point.
+Domain Pack MCP Server - Pure Transformation Interface
+
+This is a pure, deterministic document transformer following the compiler model.
+
+Architecture:
+- NO sessions, NO version history, NO database
+- Pure function: (document, operations) → (updated_document, diff, errors)
+- All-or-nothing execution
+- Deterministic behavior
 """
 
 import sys
 from fastmcp import FastMCP
-from typing import Dict, Any, List
-import os
+from typing import Dict, Any, List, Optional
 
-# Import tools
-from tools import (
-    create_session_tool,
-    apply_change_tool,
-    apply_batch_tool,
-    rollback_tool,
-    export_domain_pack_tool,
-    get_session_info_tool,
-    ToolError
+# Import pure transformation engine
+from executor import (
+    execute_transformation,
+    preview_transformation,
+    ExecutionOptions,
+    TransformationResult
 )
-
-# Import database initialization
-from db import init_database, DatabaseError
+from schema import DOMAIN_PACK_SCHEMA, validate_schema, ValidationError
+from utils import parse_content, serialize_content, ParseError, SerializationError
 
 
 # Create FastMCP instance
-mcp = FastMCP("Domain Pack MCP Server")
+mcp = FastMCP("Domain Pack MCP Server - Pure Transformation Engine")
 
 
 @mcp.tool()
-def create_session(initial_content: str, file_type: str) -> Dict[str, Any]:
+def transform_document(
+    document: str,
+    format: str,
+    operations: List[Dict[str, Any]],
+    schema: Optional[Dict[str, Any]] = None,
+    options: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
-    Create a new domain pack session with initial content.
+    Pure document transformation.
     
-    IMPORTANT USAGE RULES:
-    1. 'initial_content' must be a VALID YAML or JSON string, NOT a placeholder.
-    2. 'file_type' must be "yaml" or "json".
+    Takes a document and operations, returns updated document with diff and errors.
+    NO state, NO sessions, NO versions - pure transformation only.
     
     Args:
-        initial_content: The complete initial content of the domain pack.
-                        MUST be a valid dictionary string (e.g. YAML or JSON).
-                        DO NOT send "template goes here". Send the ACTUAL template.
-        file_type: "yaml" or "json"
-        
+        document: YAML or JSON string of the document
+        format: "yaml" or "json"
+        operations: List of operations to apply
+        schema: Optional custom schema (uses DOMAIN_PACK_SCHEMA if not provided)
+        options: Optional execution options:
+            - strict_mode: bool (default True) - Fail on warnings
+            - auto_create_paths: bool (default False) - Auto-create missing paths
+            - preserve_formatting: bool (default True) - Preserve YAML formatting
+            - max_operations: int (default 100) - Maximum operations per batch
+            - bulk_threshold: int (default 10) - Warning threshold for bulk ops
+            - forbidden_paths: List[str] - Paths that cannot be modified
+    
     Returns:
-        Session information including session_id
-        
+        {
+            "success": bool,
+            "document": dict,  # Updated document (or original if failed)
+            "serialized": str,  # Serialized output in requested format
+            "diff": dict,  # Changes made
+            "errors": list,  # Blocking errors
+            "warnings": list,  # Non-blocking warnings
+            "affected_paths": list,  # Paths that were modified
+            "execution_metadata": dict  # Execution stats
+        }
+    
     Example:
-        create_session(
-            initial_content=\"\"\"
+        transform_document(
+            document='''
 name: Legal
 description: Legal domain
 version: 1.0.0
 entities: []
-\"\"\",
-            file_type="yaml"
-        )
-    """
-    try:
-        return create_session_tool(initial_content, file_type)
-    except ToolError as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to create session"
-        }
-
-@mcp.tool()
-def apply_change(session_id: str, operation: Dict[str, Any], reason: str) -> Dict[str, Any]:
-    """
-    Apply a single operation to a domain pack.
-    
-    Args:
-        session_id: Session UUID from create_session
-        operation: Operation dictionary containing:
-                  - action: "add", "replace", "remove", "move", "copy", "test"
-                  - path: List of keys/indices to target (e.g. ["entities", 0, "name"])
-                  - value: New value (for add/replace/test)
-        reason: Human-readable reason for the change
-        
-    Returns:
-        Result including new version number and diff
-        
-    Example:
-        apply_change(
-            session_id="uuid-here",
-            operation={
-                "action": "add",
-                "path": ["entities"],
-                "value": {"name": "NewEntity", "type": "TEST"}
-            },
-            reason="Adding new entity"
-        )
-    """
-    try:
-        return apply_change_tool(session_id, operation, reason)
-    except ToolError as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to apply change"
-        }
-
-
-@mcp.tool()
-def apply_batch(session_id: str, operations: List[Dict[str, Any]], reason: str) -> Dict[str, Any]:
-    """
-    Apply multiple operations atomically to a domain pack.
-    
-    Args:
-        session_id: Session UUID from create_session
-        operations: List of operation dictionaries (see apply_change for format)
-        reason: Human-readable reason for the changes
-        
-    Returns:
-        Result including new version number and diff
-        
-    Example:
-        apply_batch(
-            session_id="uuid-here",
+            ''',
+            format="yaml",
             operations=[
-                {"action": "replace", "path": ["version"], "value": "1.1.0"},
-                {"action": "add", "path": ["key_terms"], "value": "compliance"}
-            ],
-            reason="Bumping version and adding term"
+                {
+                    "action": "add",
+                    "path": ["entities"],
+                    "value": {"name": "Attorney", "type": "ATTORNEY", "attributes": ["name", "bar_number"]}
+                }
+            ]
         )
     """
     try:
-        return apply_batch_tool(session_id, operations, reason)
-    except ToolError as e:
+        # Parse input document
+        try:
+            parsed_doc = parse_content(document, format)
+        except ParseError as e:
+            return {
+                "success": False,
+                "document": {},
+                "serialized": "",
+                "diff": None,
+                "errors": [{
+                    "code": "PARSE_ERROR",
+                    "message": str(e),
+                    "phase": "parsing"
+                }],
+                "warnings": [],
+                "affected_paths": [],
+                "execution_metadata": {}
+            }
+        
+        # Use default schema if not provided
+        if schema is None:
+            schema = DOMAIN_PACK_SCHEMA
+        
+        # Parse options
+        exec_options = ExecutionOptions()
+        if options:
+            exec_options.strict_mode = options.get("strict_mode", True)
+            exec_options.auto_create_paths = options.get("auto_create_paths", False)
+            exec_options.preserve_formatting = options.get("preserve_formatting", True)
+            exec_options.max_operations = options.get("max_operations", 100)
+            exec_options.bulk_threshold = options.get("bulk_threshold", 10)
+            exec_options.forbidden_paths = options.get("forbidden_paths")
+        
+        # Execute transformation
+        result = execute_transformation(
+            document=parsed_doc,
+            schema=schema,
+            operations=operations,
+            options=exec_options
+        )
+        
+        # Serialize output if successful
+        if result.success:
+            try:
+                result.serialized = serialize_content(result.document, format)
+            except SerializationError as e:
+                return {
+                    "success": False,
+                    "document": parsed_doc,
+                    "serialized": "",
+                    "diff": None,
+                    "errors": [{
+                        "code": "SERIALIZATION_ERROR",
+                        "message": str(e),
+                        "phase": "serialization"
+                    }],
+                    "warnings": result.warnings,
+                    "affected_paths": result.affected_paths,
+                    "execution_metadata": result.execution_metadata
+                }
+        
+        return result.to_dict()
+    
+    except Exception as e:
         return {
             "success": False,
-            "error": str(e),
-            "message": "Failed to apply batch"
+            "document": {},
+            "serialized": "",
+            "diff": None,
+            "errors": [{
+                "code": "UNEXPECTED_ERROR",
+                "message": f"Unexpected error: {str(e)}",
+                "phase": "unknown"
+            }],
+            "warnings": [],
+            "affected_paths": [],
+            "execution_metadata": {}
         }
 
 
 @mcp.tool()
-def rollback(session_id: str, target_version: int) -> Dict[str, Any]:
+def validate_document(document: str, format: str, schema: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
-    Rollback to a previous version.
-    Creates a new version with content from target_version.
-    Never deletes history - rollback is a new version.
+    Validate document against schema without transformation.
+    
     Args:
-        session_id: Session UUID from create_session
-        target_version: Version number to rollback to
-        
+        document: YAML or JSON string
+        format: "yaml" or "json"
+        schema: Optional custom schema (uses DOMAIN_PACK_SCHEMA if not provided)
+    
     Returns:
-        Result including new version number
-        
+        {
+            "valid": bool,
+            "errors": list,
+            "warnings": list
+        }
+    
     Example:
-        rollback(
-            session_id="uuid-here",
-            target_version=3
+        validate_document(
+            document='name: Legal\\ndescription: Legal domain\\nversion: 1.0.0',
+            format="yaml"
         )
     """
     try:
-        return rollback_tool(session_id, target_version)
-    except ToolError as e:
+        # Parse document
+        try:
+            parsed_doc = parse_content(document, format)
+        except ParseError as e:
+            return {
+                "valid": False,
+                "errors": [{
+                    "code": "PARSE_ERROR",
+                    "message": str(e)
+                }],
+                "warnings": []
+            }
+        
+        # Use default schema if not provided
+        if schema is None:
+            schema = DOMAIN_PACK_SCHEMA
+        
+        # Validate
+        try:
+            validate_schema(parsed_doc, schema)
+            return {
+                "valid": True,
+                "errors": [],
+                "warnings": []
+            }
+        except ValidationError as e:
+            return {
+                "valid": False,
+                "errors": [{
+                    "code": "VALIDATION_ERROR",
+                    "message": str(e)
+                }],
+                "warnings": []
+            }
+    
+    except Exception as e:
         return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to rollback"
+            "valid": False,
+            "errors": [{
+                "code": "UNEXPECTED_ERROR",
+                "message": str(e)
+            }],
+            "warnings": []
         }
 
 
 @mcp.tool()
-def export_domain_pack(session_id: str, file_type: str, version: int = None) -> Dict[str, Any]:
+def preview_operations(
+    document: str,
+    format: str,
+    operations: List[Dict[str, Any]],
+    schema: Optional[Dict[str, Any]] = None,
+    options: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
-    Export domain pack as YAML or JSON.
+    Preview what would change without applying operations (dry-run mode).
+    
     Args:
-        session_id: Session UUID from create_session
-        file_type: Output format - "yaml" or "json"
-        version: Optional version number (default: latest)
+        document: YAML or JSON string
+        format: "yaml" or "json"
+        operations: List of operations to preview
+        schema: Optional custom schema
+        options: Optional execution options
+    
     Returns:
-        Domain pack content as string
-        
+        {
+            "would_succeed": bool,
+            "diff": dict,  # What would change
+            "errors": list,
+            "warnings": list,
+            "affected_paths": list,
+            "operations_count": int
+        }
+    
     Example:
-        export_domain_pack(
-            session_id="uuid-here",
-            file_type="yaml"
+        preview_operations(
+            document='name: Legal\\nversion: 1.0.0',
+            format="yaml",
+            operations=[{"action": "replace", "path": ["version"], "value": "2.0.0"}]
         )
     """
     try:
-        return export_domain_pack_tool(session_id, file_type, version)
-    except ToolError as e:
+        # Parse document
+        try:
+            parsed_doc = parse_content(document, format)
+        except ParseError as e:
+            return {
+                "would_succeed": False,
+                "diff": None,
+                "errors": [{
+                    "code": "PARSE_ERROR",
+                    "message": str(e)
+                }],
+                "warnings": [],
+                "affected_paths": [],
+                "operations_count": len(operations)
+            }
+        
+        # Use default schema if not provided
+        if schema is None:
+            schema = DOMAIN_PACK_SCHEMA
+        
+        # Parse options
+        exec_options = ExecutionOptions()
+        if options:
+            exec_options.strict_mode = options.get("strict_mode", True)
+            exec_options.auto_create_paths = options.get("auto_create_paths", False)
+            exec_options.max_operations = options.get("max_operations", 100)
+            exec_options.bulk_threshold = options.get("bulk_threshold", 10)
+            exec_options.forbidden_paths = options.get("forbidden_paths")
+        
+        # Preview
+        return preview_transformation(
+            document=parsed_doc,
+            schema=schema,
+            operations=operations,
+            options=exec_options
+        )
+    
+    except Exception as e:
         return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to export"
+            "would_succeed": False,
+            "diff": None,
+            "errors": [{
+                "code": "UNEXPECTED_ERROR",
+                "message": str(e)
+            }],
+            "warnings": [],
+            "affected_paths": [],
+            "operations_count": len(operations)
         }
 
 
 @mcp.tool()
-def get_session_info(session_id: str) -> Dict[str, Any]:
+def get_schema() -> Dict[str, Any]:
     """
-    Get session information and version history.
-    Args:
-        session_id: Session UUID from create_session
-        
+    Get the default domain pack schema.
+    
     Returns:
-        Session metadata and version list
-        
+        The DOMAIN_PACK_SCHEMA definition
+    
     Example:
-        get_session_info(session_id="uuid-here")
+        get_schema()
     """
-    try:
-        return get_session_info_tool(session_id)
-    except ToolError as e:
-        return {
-            "success": False,
-            "error": str(e),
-            "message": "Failed to get session info"
-        }
+    return DOMAIN_PACK_SCHEMA
 
 
 def main():
     """
     Main entry point.
-    Initializes database and runs the MCP server.
+    Runs the pure MCP transformation server.
     """
     try:
-        print("DB: Initializing database.", file=sys.stderr)
-        init_database()
-        print("DB: Database initialized successfully.", file=sys.stderr)
-
-        print("SERVER: Starting Domain Pack MCP Server", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+        print("Domain Pack MCP Server - Pure Transformation Engine", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Architecture: Pure, Deterministic Document Transformer", file=sys.stderr)
+        print("- NO sessions, NO version history, NO database", file=sys.stderr)
+        print("- Pure function: (document, operations) → (result, diff, errors)", file=sys.stderr)
+        print("- All-or-nothing execution", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Available Tools:", file=sys.stderr)
+        print("  1. transform_document - Apply operations to document", file=sys.stderr)
+        print("  2. validate_document - Validate document against schema", file=sys.stderr)
+        print("  3. preview_operations - Preview changes without applying", file=sys.stderr)
+        print("  4. get_schema - Get domain pack schema definition", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Starting server...", file=sys.stderr)
+        print("=" * 60, file=sys.stderr)
+        
         mcp.run()
-
-    except DatabaseError as e:
-        print(f"Database initialization failed: {e}", file=sys.stderr)
-        sys.exit(1)
+    
     except Exception as e:
         print(f"Server failed to start: {e}", file=sys.stderr)
         sys.exit(1)
