@@ -1,30 +1,17 @@
 """
-API v1 Router - Refactored
-
-Consolidates routes using unified endpoints and removes redundancy.
+API v1 Router
+Combines all API endpoints
 """
-
 from fastapi import APIRouter
-from app.api.v1.endpoints import (
-    sessions_versions,  # Unified sessions + versions
-    chat,
-    operations,
-    rollback,
-    export,
-    dashboard
-)
+
+from app.api.v1 import auth, chat, proposals, versions
 
 api_router = APIRouter()
 
-# Unified sessions and versions (RESTful structure)
-api_router.include_router(
-    sessions_versions.router,
-    tags=["sessions", "versions"]
-)
+# Include all routers
+api_router.include_router(auth.router)
+api_router.include_router(chat.router)
+api_router.include_router(proposals.router)
+api_router.include_router(versions.router)
 
-# Other endpoints
-api_router.include_router(chat.router, prefix="/chat", tags=["chat"])
-api_router.include_router(operations.router, prefix="/operations", tags=["operations"])
-api_router.include_router(rollback.router, prefix="/rollback", tags=["rollback"])
-api_router.include_router(export.router, prefix="/export", tags=["export"])
-api_router.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+

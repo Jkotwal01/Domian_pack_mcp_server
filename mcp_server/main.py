@@ -343,30 +343,7 @@ def main():
     Main entry point.
     Runs the pure MCP transformation server.
     """
-    try:
-        print("=" * 60, file=sys.stderr)
-        print("Domain Pack MCP Server - Pure Transformation Engine", file=sys.stderr)
-        print("=" * 60, file=sys.stderr)
-        print("", file=sys.stderr)
-        print("Architecture: Pure, Deterministic Document Transformer", file=sys.stderr)
-        print("- NO sessions, NO version history, NO database", file=sys.stderr)
-        print("- Pure function: (document, operations) → (result, diff, errors)", file=sys.stderr)
-        print("- All-or-nothing execution", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("Available Tools:", file=sys.stderr)
-        print("  1. transform_document - Apply operations to document", file=sys.stderr)
-        print("  2. validate_document - Validate document against schema", file=sys.stderr)
-        print("  3. preview_operations - Preview changes without applying", file=sys.stderr)
-        print("  4. get_schema - Get domain pack schema definition", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("Starting server...", file=sys.stderr)
-        print("=" * 60, file=sys.stderr)
-        
-        mcp.run()
-    
-    except Exception as e:
-        print(f"Server failed to start: {e}", file=sys.stderr)
-        sys.exit(1)
+    mcp.run()
 
 
 if __name__ == "__main__":
