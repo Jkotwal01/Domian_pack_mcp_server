@@ -1,31 +1,21 @@
-"""
-Database Initialization Script
-
-Run this script to initialize the PostgreSQL database schema.
-"""
 
 import sys
 import os
 
-# Add parent directory to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Add the parent directory to sys.path to allow imports from 'app'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from app.core import db
+from app.db.session import engine
+from app.db.models import Base
 
-def main():
-    print("Initializing Domain Pack MCP Database...")
-    print(f"Connection string: {db.get_connection_string()}")
-    
+def init_db():
+    print("Initializing database...")
     try:
-        db.init_database()
-        print("✅ Database initialized successfully!")
-        print("\nTables created:")
-        print("  - sessions")
-        print("  - versions")
-        
+        # Create all tables
+        Base.metadata.create_all(bind=engine)
+        print("Successfully created all tables.")
     except Exception as e:
-        print(f"❌ Database initialization failed: {str(e)}")
-        sys.exit(1)
+        print(f"Error initializing database: {e}")
 
 if __name__ == "__main__":
-    main()
+    init_db()

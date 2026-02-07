@@ -53,9 +53,12 @@ export const useChatSessions = () => {
     };
   };
 
-  const addSession = () => {
-    const newSession = createNewSession();
-    setSessions(prev => [newSession, ...prev]); // Add to beginning (most recent first)
+  const addSession = (initialData = {}) => {
+    const newSession = {
+      ...createNewSession(initialData.title || 'New Chat'),
+      ...initialData
+    };
+    setSessions(prev => [newSession, ...prev]);
     setActiveSessionId(newSession.id);
     return newSession.id;
   };

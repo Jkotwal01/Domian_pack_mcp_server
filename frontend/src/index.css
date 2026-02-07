@@ -3,6 +3,9 @@
 @import "tailwindcss";
 
 @layer base {
+  html {
+    font-size: 14px;
+  }
   body {
     @apply antialiased text-slate-800 bg-white;
     font-family: 'Inter', sans-serif;

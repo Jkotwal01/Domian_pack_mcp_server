@@ -148,6 +148,37 @@ export async function exportDomainPack(sessionId, format = 'yaml') {
 }
 
 /**
+ * GRANULAR DOMAIN PACKS (Phase 1)
+ */
+export async function listDomainPacks() {
+  const response = await fetch(`${API_BASE}/domain-packs/`);
+  return handleResponse(response);
+}
+
+export async function getDomainPackExport(domainId) {
+  const response = await fetch(`${API_BASE}/domain-packs/${domainId}/export`);
+  return handleResponse(response);
+}
+
+export async function syncDomainPack(domainId, data) {
+  const response = await fetch(`${API_BASE}/domain-packs/${domainId}/sync`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  });
+  return handleResponse(response);
+}
+
+export async function createDomainPack(name, description) {
+  const response = await fetch(`${API_BASE}/domain-packs/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, description })
+  });
+  return handleResponse(response);
+}
+
+/**
  * HEALTH
  */
 export async function checkHealth() {

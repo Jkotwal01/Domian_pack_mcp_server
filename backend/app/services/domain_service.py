@@ -1,121 +1,150 @@
 import uuid
+import yaml
 from typing import Dict, Any, List, Optional
 from sqlalchemy.orm import Session as DBSession
 from sqlalchemy import desc
 
-from app.db.models import Session, Version
-from app.core.db import SessionNotFoundError, VersionNotFoundError
+from app.db.models import DomainPack, Entity, ExtractionPattern, KeyTerm, Relationship, VersionHistory
 from app.logic.schema import validate_domain_pack
-from app.logic.operations import apply_batch, CRUDError
-from app.logic.utils import calculate_diff
-from app.models.api_models import SessionCreateRequest
 
 class DomainService:
     def __init__(self, db: DBSession):
         self.db = db
 
-    def create_session(self, request: CreateSessionRequest) -> Session:
-        # Validate initial content
-        validate_domain_pack(request.initial_content)
+    def get_full_domain_pack(self, domain_id: uuid.UUID) -> Dict[str, Any]:
+        """Reconstruct the full Domain Pack JSON from granular tables."""
+        domain = self.db.query(DomainPack).filter(DomainPack.id == domain_id).first()
+        if not domain:
+            raise ValueError(f"Domain pack not found: {domain_id}")
+
+        result = {
+            "name": domain.name,
+            "description": domain.description,
+            "version": domain.version,
+            "entities": [],
+            "extraction_patterns": [],
+            "key_terms": [],
+            "relationships": []
+        }
+
+        for entity in domain.entities:
+            result["entities"].append({
+                "name": entity.name,
+                "type": entity.type,
+                "attributes": entity.attributes,
+                "synonyms": entity.synonyms or []
+            })
+
+        for p in domain.patterns:
+            result["extraction_patterns"].append({
+                "pattern": p.pattern,
+                "entity_type": p.entity_type,
+                "attribute": p.attribute,
+                "confidence": p.confidence / 100.0 if p.confidence is not None else 0.0
+            })
+
+        for term in domain.terms:
+            result["key_terms"].append(term.term)
+
+        for rel in domain.relationships:
+            result["relationships"].append({
+                "name": rel.name,
+                "from": rel.from_entity,
+                "to": rel.to_entity,
+                "attributes": rel.attributes or [],
+                "synonyms": rel.synonyms or []
+            })
+
+        # Note: In Phase 1, we focus on these main components. 
+        # Other schema sections can be added as needed or stored in a JSONB 'metadata' field if sparse.
         
-        session_id = uuid.uuid4()
+        return result
+
+    def sync_domain_from_content(self, domain_id: uuid.UUID, content: Dict[str, Any], reason: str = "Manual Update"):
+        """Sync granular tables from a full JSON/YAML content object."""
+        validate_domain_pack(content)
         
-        # Create Session
-        db_session = Session(
-            session_id=session_id,
-            file_type=request.file_type,
-            metadata_=request.metadata,
-            current_version=1
+        domain = self.db.query(DomainPack).filter(DomainPack.id == domain_id).first()
+        if not domain:
+            raise ValueError(f"Domain pack not found: {domain_id}")
+
+        # Update metadata
+        domain.name = content.get("name", domain.name)
+        domain.description = content.get("description", domain.description)
+        domain.version = content.get("version", domain.version)
+
+        # Clear existing granular records
+        self.db.query(Entity).filter(Entity.domain_id == domain_id).delete()
+        self.db.query(ExtractionPattern).filter(ExtractionPattern.domain_id == domain_id).delete()
+        self.db.query(KeyTerm).filter(KeyTerm.domain_id == domain_id).delete()
+        self.db.query(Relationship).filter(Relationship.domain_id == domain_id).delete()
+
+        # Insert new Entities
+        for e_data in content.get("entities", []):
+            db_entity = Entity(
+                domain_id=domain_id,
+                name=e_data["name"],
+                type=e_data["type"],
+                attributes=e_data["attributes"],
+                synonyms=e_data.get("synonyms", [])
+            )
+            self.db.add(db_entity)
+
+        # Insert new Patterns
+        for p_data in content.get("extraction_patterns", []):
+            db_p = ExtractionPattern(
+                domain_id=domain_id,
+                pattern=p_data["pattern"],
+                entity_type=p_data["entity_type"],
+                attribute=p_data["attribute"],
+                confidence=int(p_data["confidence"] * 100) if "confidence" in p_data else None
+            )
+            self.db.add(db_p)
+
+        # Insert new Key Terms
+        for term in content.get("key_terms", []):
+            db_term = KeyTerm(domain_id=domain_id, term=term)
+            self.db.add(db_term)
+
+        # Insert new Relationships
+        for r_data in content.get("relationships", []):
+            db_rel = Relationship(
+                domain_id=domain_id,
+                name=r_data["name"],
+                from_entity=r_data["from"],
+                to_entity=r_data["to"],
+                attributes=r_data.get("attributes", []),
+                synonyms=r_data.get("synonyms", [])
+            )
+            self.db.add(db_rel)
+
+        # Create Version Snapshot
+        # Get next version number
+        latest_v = self.db.query(VersionHistory).filter(VersionHistory.domain_id == domain_id).order_by(desc(VersionHistory.version_number)).first()
+        new_v_num = (latest_v.version_number + 1) if latest_v else 1
+        
+        v_history = VersionHistory(
+            domain_id=domain_id,
+            version_number=new_v_num,
+            content=content
         )
-        self.db.add(db_session)
-        
-        # Create Initial Version
-        db_version = Version(
-            session_id=session_id,
-            version=1,
-            content=request.initial_content,
-            diff=None,
-            reason="Initial version"
+        self.db.add(v_history)
+
+        self.db.commit()
+        return domain
+
+    def list_domain_packs(self) -> List[DomainPack]:
+        return self.db.query(DomainPack).order_by(desc(DomainPack.updated_at)).all()
+
+    def create_domain_pack(self, name: str, description: str, is_template: bool = False) -> DomainPack:
+        domain = DomainPack(
+            id=uuid.uuid4(),
+            name=name,
+            description=description,
+            is_template=1 if is_template else 0
         )
-        self.db.add(db_version)
-        
+        self.db.add(domain)
         self.db.commit()
-        self.db.refresh(db_session)
-        return db_session
+        self.db.refresh(domain)
+        return domain
 
-    def get_session(self, session_id: uuid.UUID) -> Session:
-        session = self.db.query(Session).filter(Session.session_id == session_id).first()
-        if not session:
-            raise SessionNotFoundError(f"Session not found: {session_id}")
-        return session
-
-    def get_latest_version(self, session_id: uuid.UUID) -> Version:
-        version = self.db.query(Version).filter(
-            Version.session_id == session_id
-        ).order_by(desc(Version.version)).first()
-        
-        if not version:
-             # Should not happen if session exists unless data corruption, but check anyway
-             raise VersionNotFoundError(f"No versions found for session {session_id}")
-        return version
-
-    def get_version(self, session_id: uuid.UUID, version_num: int) -> Version:
-        version = self.db.query(Version).filter(
-            Version.session_id == session_id,
-            Version.version == version_num
-        ).first()
-        if not version:
-            raise VersionNotFoundError(f"Version {version_num} not found for session {session_id}")
-        return version
-    
-    def list_versions(self, session_id: uuid.UUID, limit: int = 50) -> List[Version]:
-        # Check if session exists first
-        self.get_session(session_id)
-        
-        versions = self.db.query(Version).filter(
-            Version.session_id == session_id
-        ).order_by(desc(Version.version)).limit(limit).all()
-        return versions
-
-    def apply_operations(self, session_id: uuid.UUID, operations: List[Dict[str, Any]]) -> Version:
-        # Get Session and Latest Version
-        db_session = self.get_session(session_id)
-        current_version_obj = self.get_latest_version(session_id)
-        current_content = current_version_obj.content
-        
-        # Apply Operations (Pure)
-        try:
-            new_content = apply_batch(current_content, operations)
-        except CRUDError as e:
-            # Re-raise as ValueError for API to handle
-            raise ValueError(f"Operation failed: {str(e)}")
-
-        # Validate New Content (Schema)
-        validate_domain_pack(new_content)
-        
-        # Calculate Diff
-        diff = calculate_diff(current_content, new_content)
-        
-        # Create New Version
-        new_version_num = current_version_obj.version + 1
-        new_version = Version(
-            session_id=session_id,
-            version=new_version_num,
-            content=new_content,
-            diff=diff,
-            reason=f"Applied {len(operations)} operations"
-        )
-        
-        self.db.add(new_version)
-        
-        # Update Session
-        db_session.current_version = new_version_num
-        
-        self.db.commit()
-        self.db.refresh(new_version)
-        return new_version
-
-    def delete_session(self, session_id: uuid.UUID):
-        session = self.get_session(session_id)
-        self.db.delete(session)
-        self.db.commit()
