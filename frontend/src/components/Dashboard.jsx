@@ -1,452 +1,273 @@
 import React, { useState, useEffect } from 'react';
-import { getAllSessions, getAllVersions, listVersions, getVersionYAML, deleteVersion, deleteSession } from '../services/api';
-import YAMLViewer from './YAMLViewer';
-import VersionComparison from './VersionComparison';
+import { listDomainPacks, createDomainPack } from '../services/api';
 
-export default function Dashboard() {
-  const [activeView, setActiveView] = useState('overview'); // 'overview' or 'session-detail'
+export default function Dashboard({ onSelectDomain, onCreateDomain, sidebarOpen, toggleSidebar }) {
   const [sessions, setSessions] = useState([]);
-  const [allVersions, setAllVersions] = useState([]);
-  const [selectedSession, setSelectedSession] = useState(null);
-  const [sessionVersions, setSessionVersions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // YAML Viewer state
-  const [yamlViewerOpen, setYamlViewerOpen] = useState(false);
-  const [yamlContent, setYamlContent] = useState('');
-  const [yamlTitle, setYamlTitle] = useState('');
-  
-  // Comparison state
-  const [comparisonOpen, setComparisonOpen] = useState(false);
-  const [compareSession1, setCompareSession1] = useState(null);
-  const [compareVersion1, setCompareVersion1] = useState(null);
-  const [compareSession2, setCompareSession2] = useState(null);
-  const [compareVersion2, setCompareVersion2] = useState(null);
-  const [selectedForComparison, setSelectedForComparison] = useState([]);
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [showMetadataForm, setShowMetadataForm] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    version: '1.0.0'
+  });
 
   useEffect(() => {
-    loadDashboardData();
+    loadSessions();
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadSessions = async () => {
     try {
       setLoading(true);
-      setError(null);
-      const [sessionsData, versionsData] = await Promise.all([
-        getAllSessions(),
-        getAllVersions()
-      ]);
-      setSessions(sessionsData.sessions);
-      setAllVersions(versionsData.versions);
+      const data = await listDomainPacks();
+      setSessions(data);
     } catch (err) {
-      setError(err.message);
+      console.error("Failed to load sessions:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSessionClick = async (session) => {
-    setSelectedSession(session);
-    setActiveView('session-detail');
+  const domainIcons = {
+    Automotive: "🚗",
+    Manufacturing: "🏭",
+    Healthcare: "🏥",
+    Legal: "⚖️",
+    SaaS: "💻",
+  };
+
+  const handleSaveMetadata = async (e) => {
+    e.preventDefault();
     try {
-      const versions = await listVersions(session.session_id);
-      setSessionVersions(versions);
+      setLoading(true);
+      const newDomain = await createDomainPack(formData.name, formData.description);
+      onCreateDomain({
+        id: newDomain.id,
+        name: newDomain.name,
+        description: formData.description,
+        version: formData.version,
+        isTemplate: true
+      });
+      setShowMetadataForm(false);
     } catch (err) {
-      console.error('Failed to load session versions:', err);
+      alert("Failed to create domain: " + err.message);
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const handleViewYAML = async (sessionId, version, domainName) => {
-    try {
-      const data = await getVersionYAML(sessionId, version);
-      setYamlContent(data.yaml_content);
-      setYamlTitle(`${domainName} - Version ${version}`);
-      setYamlViewerOpen(true);
-    } catch (err) {
-      console.error('Failed to load YAML:', err);
-    }
-  };
-
-  const handleSelectForComparison = (sessionId, version) => {
-    const selection = { sessionId, version };
-    
-    if (selectedForComparison.length === 0) {
-      setSelectedForComparison([selection]);
-    } else if (selectedForComparison.length === 1) {
-      setSelectedForComparison([...selectedForComparison, selection]);
-      // Auto-open comparison
-      setCompareSession1(selectedForComparison[0].sessionId);
-      setCompareVersion1(selectedForComparison[0].version);
-      setCompareSession2(selection.sessionId);
-      setCompareVersion2(selection.version);
-      setComparisonOpen(true);
-      setSelectedForComparison([]);
-    } else {
-      setSelectedForComparison([selection]);
-    }
-  };
-
-  const isSelectedForComparison = (sessionId, version) => {
-    return selectedForComparison.some(
-      s => s.sessionId === sessionId && s.version === version
-    );
-  };
-
-  const filteredSessions = sessions.filter(session =>
-    session.domain_name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-500 mx-auto mb-4"></div>
-          <p className="text-slate-400">Loading dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full p-8">
-        <div className="bg-red-900/20 border border-red-500 rounded-lg p-6 max-w-md">
-          <h3 className="text-red-200 font-semibold text-lg mb-2">Error Loading Dashboard</h3>
-          <p className="text-red-300 text-sm">{error}</p>
-          <button
-            onClick={loadDashboardData}
-            className="mt-4 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-          >
-            Retry
-          </button>
-        </div>
+      <div className="flex items-center justify-center h-full bg-white">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-slate-900">
-      {/* Header */}
-      <div className="bg-slate-800 border-b border-slate-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-              <svg className="w-8 h-8 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-              Version Dashboard
-            </h1>
-            <p className="text-slate-400 mt-1">
-              Manage and compare domain pack versions across all sessions
-            </p>
-          </div>
-          {activeView === 'session-detail' && (
-            <button
-              onClick={() => setActiveView('overview')}
-              className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center gap-2"
+    <div className="h-full flex flex-col bg-white overflow-y-auto">
+      {/* Selection Header */}
+      <div className="px-8 py-4 flex items-center justify-between border-b border-slate-100">
+        <div className="flex items-center space-x-4">
+          {!sidebarOpen && (
+            <button 
+              onClick={toggleSidebar}
+              className="p-2 rounded-xl hover:bg-slate-50 text-slate-500 transition-all border border-transparent hover:border-slate-100"
+              title="Open Sidebar"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
-              Back to Overview
             </button>
           )}
+          <h1 className="text-xl font-bold text-slate-800">Select Your Domain</h1>
         </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-700/50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Total Sessions</p>
-                <p className="text-3xl font-bold text-white mt-1">{sessions.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-indigo-500/20 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div className="bg-slate-700/50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Total Versions</p>
-                <p className="text-3xl font-bold text-white mt-1">{allVersions.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-          <div className="bg-slate-700/50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-slate-400 text-sm">Avg Versions/Session</p>
-                <p className="text-3xl font-bold text-white mt-1">
-                  {sessions.length > 0 ? (allVersions.length / sessions.length).toFixed(1) : 0}
-                </p>
-              </div>
-              <div className="w-12 h-12 bg-purple-500/20 rounded-lg flex items-center justify-center">
-                <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
+        <div className="text-sm font-medium text-slate-400">Step 1 of 2</div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6">
-        {activeView === 'overview' ? (
-          <>
-            {/* Search */}
-            <div className="mb-6">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search by domain name..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-slate-800 text-white px-4 py-3 pl-12 rounded-lg border border-slate-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-                <svg className="w-5 h-5 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+      <div className="p-12 max-w-7xl mx-auto w-full space-y-20">
+        
+        {/* Section 1: Create New */}
+        <section className="space-y-12">
+          <div className="text-center space-y-4">
+            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center text-3xl mx-auto shadow-sm border border-blue-100">
+              ⚡
             </div>
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Choose Your Base Template</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto leading-relaxed">
+              Start fresh with our universal base template that includes all essential keys for any domain pack.
+            </p>
+          </div>
 
-            {/* Sessions Grid */}
-            {filteredSessions.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredSessions.map((session) => (
-                  <div
-                    key={session.session_id}
-                    onClick={() => handleSessionClick(session)}
-                    className="bg-slate-800 rounded-lg p-5 border border-slate-700 hover:border-indigo-500 transition-all cursor-pointer group hover:shadow-lg hover:shadow-indigo-500/10 relative"
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-white truncate group-hover:text-indigo-400 transition-colors pr-2">
-                          {session.domain_name}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-1">
-                          {session.session_id.substring(0, 8)}...
-                        </p>
-                      </div>
-
-                      {/* Managed Action Area (Icon or Delete Button) */}
-                      <div className="relative w-10 h-10 flex-shrink-0">
-                        {/* Indicator Icon (Hidden on hover) */}
-                        <div className="absolute inset-0 bg-indigo-500/20 rounded-lg flex items-center justify-center group-hover:opacity-0 transition-opacity duration-200">
-                          <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                          </svg>
-                        </div>
-                        
-                        {/* Delete Button (Visible on hover) */}
-                        <button
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            if (window.confirm(`Delete entire session for "${session.domain_name}" and all its versions?`)) {
-                              try {
-                                await deleteSession(session.session_id);
-                                loadDashboardData();
-                              } catch (err) {
-                                alert("Failed to delete session: " + err.message);
-                              }
-                            }
-                          }}
-                          className="absolute inset-0 flex items-center justify-center bg-red-600 hover:bg-red-500 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-lg"
-                          title="Delete Session"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center gap-4 text-sm mb-3">
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                        </svg>
-                        <span>v{session.current_version}</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-slate-400">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span>{session.total_versions} versions</span>
-                      </div>
-                    </div>
-                    
-                    <div className="pt-3 border-t border-slate-700">
-                      <p className="text-xs text-slate-500">
-                        Updated {formatDate(session.updated_at)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+          <div className="flex justify-center">
+            <button 
+              onClick={() => setShowMetadataForm(true)}
+              className="group relative bg-white border-2 border-blue-500 rounded-[2.5rem] p-10 hover:shadow-2xl hover:shadow-blue-100 transition-all duration-300 max-w-md w-full text-center space-y-6"
+            >
+              <div className="w-20 h-20 bg-blue-600 text-white rounded-[1.5rem] flex items-center justify-center text-4xl mx-auto shadow-lg group-hover:scale-110 transition-transform">
+                🏗️
               </div>
-            ) : (
-              <div className="text-center py-12">
-                <svg className="w-16 h-16 text-slate-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+              <div className="space-y-2">
+                <h3 className="text-2xl font-black text-slate-900">Standard Base Template</h3>
+                <p className="text-slate-500 font-medium tracking-tight">Includes universal entities, relations, and patterns</p>
+              </div>
+              <div className="flex items-center justify-center space-x-2 text-blue-600 font-bold">
+                <span>Select & Configure</span>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
-                <p className="text-slate-400 text-lg">No sessions found</p>
-                <p className="text-slate-500 text-sm mt-1">
-                  {searchTerm ? 'Try a different search term' : 'Create a new chat to get started'}
-                </p>
               </div>
-            )}
-          </>
-        ) : (
-          /* Session Detail View */
-          selectedSession && (
-            <div>
-              <div className="bg-slate-800 rounded-lg p-6 mb-6">
-                <h2 className="text-2xl font-bold text-white mb-2">{selectedSession.domain_name}</h2>
-                <div className="flex items-center gap-6 text-sm text-slate-400">
-                  <span>Session ID: {selectedSession.session_id}</span>
-                  <span>•</span>
-                  <span>Current Version: {selectedSession.current_version}</span>
-                  <span>•</span>
-                  <span>Total Versions: {selectedSession.total_versions}</span>
-                </div>
-              </div>
+            </button>
+          </div>
+        </section>
 
-              {/* Version Timeline */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-white">Version History</h3>
-                  {selectedForComparison.length > 0 && (
-                    <div className="text-sm text-indigo-400">
-                      {selectedForComparison.length} selected for comparison
-                    </div>
+        {/* Section 2: Existing Packs */}
+        <section className="space-y-12 pb-20">
+          <div className="text-center space-y-4">
+            <h2 className="text-3xl font-extrabold text-slate-900 tracking-tight">Existing Domain Packs</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto leading-relaxed">
+              Continue refining your previously generated and saved domain configurations.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {sessions.map((session) => (
+              <div 
+                key={session.id}
+                className={`relative bg-white rounded-[2rem] border-2 p-8 transition-all duration-300 cursor-pointer group ${
+                  selectedSession?.id === session.id 
+                    ? 'border-blue-500 ring-4 ring-blue-50 shadow-xl scale-[1.02]' 
+                    : 'border-slate-100 hover:border-blue-200 hover:shadow-lg'
+                }`}
+                onClick={() => setSelectedSession(session)}
+              >
+                {/* Radio Circle */}
+                <div className={`absolute top-6 right-6 w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${
+                  selectedSession?.id === session.id ? 'border-blue-500 bg-blue-500' : 'border-slate-200 bg-white'
+                }`}>
+                  {selectedSession?.id === session.id && (
+                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
                   )}
                 </div>
-                
-                {sessionVersions.map((version, index) => (
-                  <div
-                    key={version.version}
-                    className={`bg-slate-800 rounded-lg p-4 border transition-all ${
-                      isSelectedForComparison(selectedSession.session_id, version.version)
-                        ? 'border-indigo-500 bg-indigo-500/10'
-                        : 'border-slate-700 hover:border-slate-600'
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="px-3 py-1 bg-indigo-500/20 text-indigo-300 text-sm font-semibold rounded-full">
-                            Version {version.version}
-                          </span>
-                          {index === 0 && (
-                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-300 text-xs font-semibold rounded-full">
-                              LATEST
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-slate-300 text-sm mb-2">{version.reason}</p>
-                        <p className="text-slate-500 text-xs">{formatDate(version.created_at)}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleViewYAML(selectedSession.session_id, version.version, selectedSession.domain_name)}
-                          className="px-3 py-1.5 bg-slate-700 hover:bg-indigo-600 text-white text-sm rounded-lg transition-colors"
-                          title="View YAML"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleSelectForComparison(selectedSession.session_id, version.version)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-                            isSelectedForComparison(selectedSession.session_id, version.version)
-                              ? 'bg-indigo-600 text-white'
-                              : 'bg-slate-700 hover:bg-slate-600 text-white'
-                          }`}
-                          title="Select for comparison"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                          </svg>
-                        </button>
-                        
-                        {/* Delete Version Button */}
-                        <button
-                          onClick={async () => {
-                            if (version.version === selectedSession.current_version) {
-                              alert("Cannot delete the current active version");
-                              return;
-                            }
-                            if (window.confirm(`Delete version ${version.version}? This cannot be undone.`)) {
-                              try {
-                                await deleteVersion(selectedSession.session_id, version.version);
-                                // Refresh current view
-                                handleSessionClick(selectedSession);
-                                loadDashboardData();
-                              } catch (err) {
-                                alert("Failed to delete version: " + err.message);
-                              }
-                            }
-                          }}
-                          disabled={version.version === selectedSession.current_version}
-                          className="px-3 py-1.5 bg-slate-700 hover:bg-red-600 text-white text-sm rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                          title="Delete Version"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
+
+                {/* Icon & Title */}
+                <div className="flex items-center space-x-6 mb-8">
+                  <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-sm border ${
+                    selectedSession?.id === session.id ? 'bg-white border-blue-100' : 'bg-slate-50 border-slate-100'
+                  }`}>
+                    {domainIcons[session.name] || "📦"}
                   </div>
-                ))}
+                  <div>
+                    <h3 className="text-xl font-extrabold text-slate-900">{session.name}</h3>
+                    <p className="text-sm text-slate-500 font-medium">
+                      Version: {session.version}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-4 mt-8">
+                  <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Configuration Overview</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {['6 Entities', '6 Relations', '2 Patterns'].map(tag => (
+                      <span key={tag} className="px-3 py-1 bg-slate-50 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-100">
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </div>
+            ))}
+          </div>
+
+          {selectedSession && (
+            <div className="flex justify-center pt-8">
+              <button 
+                onClick={() => onSelectDomain(selectedSession)}
+                className="px-12 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all flex items-center space-x-3 group"
+              >
+                <span>Continue Enhancing Existing</span>
+                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                </svg>
+              </button>
             </div>
-          )
-        )}
+          )}
+        </section>
       </div>
 
-      {/* Modals */}
-      {yamlViewerOpen && (
-        <YAMLViewer
-          yamlContent={yamlContent}
-          title={yamlTitle}
-          onClose={() => setYamlViewerOpen(false)}
-        />
+      {/* Metadata Form Modal */}
+      {showMetadataForm && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl animate-fadeIn overflow-hidden">
+            <header className="px-10 py-8 border-b border-slate-50 bg-slate-50/50">
+              <h3 className="text-2xl font-black text-slate-900">New Domain Setup</h3>
+              <p className="text-slate-500 font-medium">Define your new domain pack metadata</p>
+            </header>
+            <form onSubmit={handleSaveMetadata} className="p-10 space-y-8">
+              <div className="space-y-3">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Domain Name</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Retail Supply Chain"
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Description</label>
+                <textarea 
+                  rows="3"
+                  placeholder="Describe what this domain pack should cover..."
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900 resize-none"
+                  value={formData.description}
+                  onChange={(e) => setFormData({...formData, description: e.target.value})}
+                />
+              </div>
+              <div className="space-y-3">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Version</label>
+                <input 
+                  type="text" 
+                  placeholder="1.0.0"
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900"
+                  value={formData.version}
+                  onChange={(e) => setFormData({...formData, version: e.target.value})}
+                />
+              </div>
+              <div className="flex items-center space-x-4 pt-4">
+                <button 
+                  type="button"
+                  onClick={() => setShowMetadataForm(false)}
+                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit"
+                  className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+                >
+                  Save & Configure
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
-      {comparisonOpen && (
-        <VersionComparison
-          session1={compareSession1}
-          version1={compareVersion1}
-          session2={compareSession2}
-          version2={compareVersion2}
-          onClose={() => setComparisonOpen(false)}
-        />
-      )}
+      {/* Footer */}
+      <footer className="mt-auto px-8 py-4 border-t border-slate-50 flex items-center justify-between text-slate-400 text-[11px] font-bold uppercase tracking-wider">
+        <p>Data Discovery Platform</p>
+        <div className="flex items-center space-x-6">
+          <p>v1.9.9</p>
+          <div className="flex items-center space-x-2 text-emerald-500">
+            <span className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]"></span>
+            <span>Live System</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
