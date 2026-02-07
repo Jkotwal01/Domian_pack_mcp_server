@@ -1,0 +1,35 @@
+backend/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       ├── auth.py          ✓ New
+│   │       ├── chat.py          ✓ New
+│   │       ├── proposals.py     ✓ New
+│   │       ├── versions.py      ✓ New
+│   │       └── router.py        ✓ Updated
+│   ├── core/
+│   │   ├── config.py            ✓ Updated
+│   │   └── logging.py           ✓ Kept
+│   ├── db/
+│   │   ├── models.py            ✓ New
+│   │   └── session.py           ✓ New
+│   ├── langgraph/
+│   │   ├── state.py             ✓ New
+│   │   ├── nodes.py             ✓ New
+│   │   └── workflow.py          ✓ New
+│   ├── schemas/
+│   │   └── __init__.py          ✓ New
+│   ├── services/
+│   │   ├── auth_service.py      ✓ New
+│   │   ├── mcp_client.py        ✓ New
+│   │   ├── memory_store.py      ✓ New
+│   │   ├── proposal_manager.py  ✓ New
+│   │   ├── session_manager.py   ✓ New
+│   │   └── version_manager.py   ✓ New
+│   └── main.py                  ✓ Updated
+├── scripts/
+│   ├── cleanup_legacy.py        ✓ New
+│   └── init_db.py               ✓ New
+├── requirements.txt             ✓ Updated
+├── .env.example                 ✓ Updated
+└── README.md                    ✓ New
