@@ -20,14 +20,23 @@ async function handleResponse(response) {
   if (response.status === 401) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    // We don't redirect here, the app state will handle it via AuthContext
+  }
+
+  if (response.status === 204) {
+    return true;
   }
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
     throw new Error(errorData.detail || errorData.message || `HTTP error! status: ${response.status}`);
   }
-  return await response.json();
+
+  const contentType = response.headers.get("content-type");
+  if (contentType && contentType.includes("application/json")) {
+    return await response.json();
+  }
+  
+  return await response.text();
 }
 
 /**

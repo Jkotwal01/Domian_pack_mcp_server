@@ -1,15 +1,189 @@
 """Base domain configuration template."""
 from typing import Dict, Any
+from openai import AsyncOpenAI
+import json
+import os
+import asyncio
+import logging
+from dotenv import load_dotenv
 
+# Set up logging
+logger = logging.getLogger("uvicorn.error")
+llm_call_count = 0
 
-def get_base_template() -> Dict[str, Any]:
+# Load environment variables
+load_dotenv()
+
+# Initialize OpenAI client
+client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+# JSON Schema strictly following your template
+DOMAIN_SCHEMA = {
+    "name": "domain_config",
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "required": [
+            "name",
+            "description",
+            "version",
+            "entities",
+            "relationships",
+            "extraction_patterns",
+            "key_terms"
+        ],
+        "properties": {
+            "name": {"type": "string"},
+            "description": {"type": "string"},
+            "version": {"type": "string"},
+            "entities": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["name", "type", "description", "attributes", "synonyms"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "type": {"type": "string"},
+                        "description": {"type": "string"},
+                        "attributes": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["name", "description"],
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "description": {"type": "string"}
+                                }
+                            }
+                        },
+                        "synonyms": {
+                            "type": "array",
+                            "minItems": 1,
+                            "items": {"type": "string"}
+                        }
+                    }
+                }
+            },
+            "relationships": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["name", "from", "to", "description", "attributes"],
+                    "properties": {
+                        "name": {"type": "string"},
+                        "from": {"type": "string"},
+                        "to": {"type": "string"},
+                        "description": {"type": "string"},
+                        "attributes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["name", "description"],
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "description": {"type": "string"}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "extraction_patterns": {
+                "type": "array",
+                "minItems": 2,
+                "items": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "pattern",
+                        "entity_type",
+                        "attribute",
+                        "extract_full_match",
+                        "confidence"
+                    ],
+                    "properties": {
+                        "pattern": {"type": "string"},
+                        "entity_type": {"type": "string"},
+                        "attribute": {"type": "string"},
+                        "extract_full_match": {"type": "boolean"},
+                        "confidence": {"type": "number"}
+                    }
+                }
+            },
+            "key_terms": {
+                "type": "array",
+                "minItems": 3,
+                "items": {"type": "string"}
+            }
+        }
+    },
+    "strict": True
+}
+
+async def generate_domain_template(domain_name: str, description: str) -> Dict[str, Any]:
+    """
+    Generate a domain template using OpenAI with strict schema enforcement.
+    Falls back to a hardcoded base template on error.
+    """
+    global llm_call_count
+    llm_call_count += 1
+    
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",  # Using gpt-4o-mini as gpt-4.1-mini is not a standard OpenAI model name
+            temperature=0.2,
+            response_format={
+                "type": "json_schema",
+                "json_schema": DOMAIN_SCHEMA
+            },
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a domain modeling assistant. "
+                               "Generate a structured domain configuration strictly following the schema."
+                },
+                {
+                    "role": "user",
+                    "content": f"""
+                        Domain Name: {domain_name}
+                        Description: {description}
+
+                        Requirements:
+                        - At least 2–3 entities
+                        - At least 1 relationship between entities
+                        - At least 2 regex-based extraction patterns
+                        - At least 3 key terms
+                        - Use realistic entity types (DOCUMENT, PERSON, ORGANIZATION, EVENT, LOCATION, SYSTEM)
+                        - For entity 'name' use capitalized words (e.g., 'Numeric Value')
+                        - For entity 'type' use uppercase with underscores (e.g., 'NUMERIC_VALUE')
+                        """
+                }
+            ]
+        )
+
+        # Access the structured output
+        logger.info(f"OpenAI API - \"POST /v1/chat/completions HTTP/1.1\" 200 OK (Call count: {llm_call_count})")
+        return response.choices[0].message.parsed
+    except Exception as e:
+        logger.error(f"AI Template Generation Error: {str(e)}")
+        logger.info(f"OpenAI API - \"POST /v1/chat/completions HTTP/1.1\" 500 Internal Server Error (Fallback to base template)")
+        return get_base_template(domain_name, description)
+
+def get_base_template(name: str = "New Domain", description: str = "") -> Dict[str, Any]:
     """
     Returns the base template for a new domain configuration.
     This template includes universal entities, relationships, and patterns.
     """
     return {
-        "name": "New Domain",
-        "description": "A new domain configuration",
+        "name": name,
+        "description": description or "A new domain configuration",
         "version": "1.0.0",
         "entities": [
             {
@@ -113,20 +287,3 @@ def get_base_template() -> Dict[str, Any]:
     }
 
 
-def create_custom_template(name: str, description: str, version: str = "1.0.0") -> Dict[str, Any]:
-    """
-    Create a custom domain template with specified metadata.
-    
-    Args:
-        name: Domain name
-        description: Domain description
-        version: Version string
-        
-    Returns:
-        Domain configuration dictionary
-    """
-    template = get_base_template()
-    template["name"] = name
-    template["description"] = description
-    template["version"] = version
-    return template

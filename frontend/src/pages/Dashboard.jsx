@@ -101,9 +101,26 @@ export default function Dashboard({ onSelectDomain, onCreateDomain, sidebarOpen,
     }
   };
 
-  if (loading) {
+  if (loading && !showMetadataForm && sessions.length > 0) {
     return (
-      <div className="flex items-center justify-center h-full bg-white">
+      <div className="flex items-center justify-center h-screen bg-slate-50/50 backdrop-blur-sm fixed inset-0 z-[60]">
+        <div className="text-center space-y-6 animate-pulse">
+          <div className="relative">
+            <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div className="absolute inset-0 flex items-center justify-center text-2xl">🤖</div>
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-xl font-black text-slate-900">Generating Domain Intelligence</h3>
+            <p className="text-slate-500 font-medium">Applying AI to build your specialized configuration...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading && sessions.length === 0) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
       </div>
     );

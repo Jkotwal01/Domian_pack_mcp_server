@@ -197,7 +197,12 @@ export default function ConfigView({ session, onProceed, toggleSidebar, isChatOp
     try {
       setLoading(true);
       await deleteDomain(domainId);
-      onBack(); // Navigate back to dashboard
+      // Ensure we navigate back and reset view
+      if (onBack) {
+        onBack();
+      } else {
+        navigate('/');
+      }
     } catch (err) {
       alert("Failed to delete domain: " + err.message);
       setLoading(false);

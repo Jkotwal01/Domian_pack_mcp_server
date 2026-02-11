@@ -6,16 +6,16 @@ from uuid import UUID
 from app.models.domain_config import DomainConfig
 from app.models.user import User
 from app.schemas.domain import DomainConfigCreate, DomainConfigUpdate
-from app.utils.templates import create_custom_template
+from app.utils.templates import generate_domain_template
 
 
 class DomainService:
     """Service for domain configuration operations."""
     
     @staticmethod
-    def create_domain(db: Session, domain_data: DomainConfigCreate, user: User) -> DomainConfig:
+    async def create_domain(db: Session, domain_data: DomainConfigCreate, user: User) -> DomainConfig:
         """
-        Create a new domain configuration with base template.
+        Create a new domain configuration with AI-generated template (or fallback).
         
         Args:
             db: Database session
@@ -25,11 +25,10 @@ class DomainService:
         Returns:
             Created domain configuration
         """
-        # Create domain config with base template
-        config_json = create_custom_template(
-            name=domain_data.name,
-            description=domain_data.description or "",
-            version=domain_data.version
+        # Create domain config with AI template or fallback
+        config_json = await generate_domain_template(
+            domain_name=domain_data.name,
+            description=domain_data.description or ""
         )
         
         db_domain = DomainConfig(
