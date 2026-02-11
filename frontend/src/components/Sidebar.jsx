@@ -1,4 +1,5 @@
 import React from "react";
+import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar({
   isOpen,
@@ -7,6 +8,14 @@ export default function Sidebar({
   onShowDashboard,
   onShowChat,
 }) {
+  const { user, logout } = useAuth();
+
+  const handleLogout = () => {
+    if (confirm("Are you sure you want to log out?")) {
+      logout();
+    }
+  };
+
   return (
     <>
       {/* Mobile Backdrop */}
@@ -62,17 +71,23 @@ export default function Sidebar({
 
           {/* User Profile */}
           <div className="p-4 border-t border-slate-100">
-            <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group">
+            <div 
+              className="flex items-center space-x-3 p-2 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group"
+              onClick={handleLogout}
+              title="Click to logout"
+            >
               <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center border border-slate-300 overflow-hidden">
                 <svg className="w-6 h-6 text-slate-500" fill="currentColor" viewBox="0 0 24 24">
                   <path fillRule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-slate-900 truncate">Jay Kotwal</p>
-                <p className="text-xs text-slate-500 truncate">jkotwal097@gmail.com</p>
+                <p className="text-sm font-semibold text-slate-900 truncate">
+                  {user?.email?.split('@')[0] || "User"}
+                </p>
+                <p className="text-xs text-slate-500 truncate">{user?.email || "No email"}</p>
               </div>
-              <svg className="w-4 h-4 text-slate-400 group-hover:text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-slate-400 group-hover:text-red-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
             </div>

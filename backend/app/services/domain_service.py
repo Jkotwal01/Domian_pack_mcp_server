@@ -1,0 +1,177 @@
+"""Domain configuration service."""
+from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
+from typing import List, Dict, Any
+from uuid import UUID
+from app.models.domain_config import DomainConfig
+from app.models.user import User
+from app.schemas.domain import DomainConfigCreate, DomainConfigUpdate
+from app.utils.templates import create_custom_template
+
+
+class DomainService:
+    """Service for domain configuration operations."""
+    
+    @staticmethod
+    def create_domain(db: Session, domain_data: DomainConfigCreate, user: User) -> DomainConfig:
+        """
+        Create a new domain configuration with base template.
+        
+        Args:
+            db: Database session
+            domain_data: Domain creation data
+            user: Owner user
+            
+        Returns:
+            Created domain configuration
+        """
+        # Create domain config with base template
+        config_json = create_custom_template(
+            name=domain_data.name,
+            description=domain_data.description or "",
+            version=domain_data.version
+        )
+        
+        db_domain = DomainConfig(
+            owner_user_id=user.id,
+            name=domain_data.name,
+            description=domain_data.description,
+            version=domain_data.version,
+            config_json=config_json
+        )
+        
+        # Update counts
+        db_domain.update_counts()
+        
+        db.add(db_domain)
+        db.commit()
+        db.refresh(db_domain)
+        
+        return db_domain
+    
+    @staticmethod
+    def get_user_domains(db: Session, user: User) -> List[DomainConfig]:
+        """
+        Get all domains owned by a user.
+        
+        Args:
+            db: Database session
+            user: Owner user
+            
+        Returns:
+            List of domain configurations
+        """
+        return db.query(DomainConfig).filter(
+            DomainConfig.owner_user_id == user.id
+        ).order_by(DomainConfig.updated_at.desc()).all()
+    
+    @staticmethod
+    def get_domain_by_id(db: Session, domain_id: UUID, user: User) -> DomainConfig:
+        """
+        Get a domain configuration by ID.
+        
+        Args:
+            db: Database session
+            domain_id: Domain UUID
+            user: Current user
+            
+        Returns:
+            Domain configuration
+            
+        Raises:
+            HTTPException: If domain not found or access denied
+        """
+        domain = db.query(DomainConfig).filter(DomainConfig.id == domain_id).first()
+        
+        if not domain:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Domain not found"
+            )
+        
+        if domain.owner_user_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Access denied"
+            )
+        
+        return domain
+    
+    @staticmethod
+    def update_domain(
+        db: Session,
+        domain_id: UUID,
+        domain_data: DomainConfigUpdate,
+        user: User
+    ) -> DomainConfig:
+        """
+        Update a domain configuration.
+        
+        Args:
+            db: Database session
+            domain_id: Domain UUID
+            domain_data: Update data
+            user: Current user
+            
+        Returns:
+            Updated domain configuration
+        """
+        domain = DomainService.get_domain_by_id(db, domain_id, user)
+        
+        # Update fields
+        if domain_data.name is not None:
+            domain.name = domain_data.name
+        if domain_data.description is not None:
+            domain.description = domain_data.description
+        if domain_data.version is not None:
+            domain.version = domain_data.version
+        if domain_data.config_json is not None:
+            domain.config_json = domain_data.config_json
+            domain.update_counts()
+        
+        db.commit()
+        db.refresh(domain)
+        
+        return domain
+    
+    @staticmethod
+    def delete_domain(db: Session, domain_id: UUID, user: User) -> None:
+        """
+        Delete a domain configuration.
+        
+        Args:
+            db: Database session
+            domain_id: Domain UUID
+            user: Current user
+        """
+        domain = DomainService.get_domain_by_id(db, domain_id, user)
+        db.delete(domain)
+        db.commit()
+    
+    @staticmethod
+    def update_config_json(
+        db: Session,
+        domain_id: UUID,
+        config_json: Dict[str, Any],
+        user: User
+    ) -> DomainConfig:
+        """
+        Update the config_json of a domain (used by chatbot).
+        
+        Args:
+            db: Database session
+            domain_id: Domain UUID
+            config_json: New configuration JSON
+            user: Current user
+            
+        Returns:
+            Updated domain configuration
+        """
+        domain = DomainService.get_domain_by_id(db, domain_id, user)
+        domain.config_json = config_json
+        domain.update_counts()
+        
+        db.commit()
+        db.refresh(domain)
+        
+        return domain

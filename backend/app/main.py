@@ -1,107 +1,76 @@
-"""
-FastAPI Main Application
-Domain Pack Authoring System Backend
-"""
-from fastapi import FastAPI
+"""Main FastAPI application."""
+from fastapi import FastAPI 
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+from app.config import settings
+from app.utils.llm_monitor import llm_monitor
 
-from app.api.v1.router import api_router
-from app.core.config import settings
-from app.core.logging import setup_logging
-from app.db.session import init_db, close_db
-from app.services.mcp_client import close_mcp_client
-from app.langgraph.workflow import init_workflow, close_workflow
-import logging
-
-# Setup logging before app startup
-setup_logging()
-logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Manage application lifecycle"""
-    # Startup
-    logger.info("Starting Domain Pack Authoring API...")
-    
-    # Initialize database
-    try:
-        await init_db()
-        logger.info("Database initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-    
-    # Setup LangSmith tracing if enabled
-    if settings.LANGSMITH_TRACING and settings.LANGSMITH_API_KEY:
-        import os
-        os.environ["LANGCHAIN_TRACING_V2"] = "true"
-        os.environ["LANGCHAIN_API_KEY"] = settings.LANGSMITH_API_KEY
-        os.environ["LANGCHAIN_PROJECT"] = settings.LANGSMITH_PROJECT
-        logger.info("LangSmith tracing enabled")
-    
-    # Initialize LangGraph workflow
-    try:
-        await init_workflow()
-        logger.info("LangGraph workflow initialized")
-    except Exception as e:
-        logger.error(f"Failed to initialize LangGraph workflow: {e}")
-    
-    yield
-    
-    # Shutdown
-    logger.info("Shutting down...")
-    await close_workflow()
-    await close_db()
-    await close_mcp_client()
-    logger.info("Shutdown complete")
-
-
+# Create FastAPI app
 app = FastAPI(
-    title=settings.PROJECT_NAME,
-    openapi_url=f"{settings.API_V1_STR}/openapi.json",
-    lifespan=lifespan
+    title="Domain Pack Generator API",
+    description="FastAPI + LangGraph backend for conversational domain pack configuration",
+    version="1.0.0",
+    debug=settings.DEBUG,
 )
 
-# CORS middleware
+# Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins_list,
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Include API router
-app.include_router(api_router, prefix=settings.API_V1_STR)
+
+@app.on_event("startup")
+async def startup_event():
+    """Print startup banner with LLM monitoring info."""
+    print("\n" + "="*60)
+    print("🚀 Domain Pack Generator API Started")
+    print("="*60)
+    print("📊 LLM API Monitoring: ENABLED")
+    print("   - All LLM calls will be tracked")
+    print("   - Response times will be measured")
+    print("   - Stats available at /stats endpoint")
+    print("="*60 + "\n")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Print monitoring summary on shutdown."""
+    print("\n" + "="*60)
+    print("🛑 Shutting Down - LLM Monitoring Summary")
+    print("="*60)
+    llm_monitor.print_summary()
 
 
 @app.get("/")
-def root():
-    """Root endpoint"""
-    logger.info("Root endpoint called")
+async def root():
+    """Health check endpoint."""
     return {
-        "message": "Welcome to Domain Pack Authoring API",
+        "message": "Domain Pack Generator API",
         "version": "1.0.0",
-        "docs": f"{settings.API_V1_STR}/docs"
+        "status": "running"
     }
 
 
 @app.get("/health")
-def health_check():
-    """Health check endpoint"""
+async def health_check():
+    """Health check for monitoring."""
+    return {"status": "healthy"}
+
+
+@app.get("/stats")
+async def get_llm_stats():
+    """Get LLM API call statistics."""
     return {
-        "status": "healthy",
-        "service": "domain-pack-authoring-api"
+        "llm_monitoring": llm_monitor.get_stats(),
+        "message": "Real-time LLM API statistics"
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "app.main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=settings.DEBUG
-    )
-
+# Import and include routers
+from app.api import auth, domains, chat
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(domains.router, prefix="/domains", tags=["domains"])
+app.include_router(chat.router, prefix="/chat", tags=["chat"])

@@ -1,284 +1,209 @@
-# Domain Pack Authoring System - Backend
+# Domain Pack Generator - Backend User Guide
 
-A comprehensive backend system for interactive, human-in-the-loop Domain Pack authoring using LangGraph, FastAPI, and PostgreSQL.
+FastAPI + LangGraph backend for conversational domain pack configuration. This service provides robust API endpoints for authentication, domain management, and an AI-powered chatbot to help you build domain knowledge graphs.
 
-## Features
+## 📋 Prerequisites
+- **Python**: 3.11 or higher
+- **PostgreSQL**: 14 or higher
+- **OpenAI API Key**: Required for LangGraph AI features
 
-- 🤖 **LangGraph Orchestration**: Multi-node workflow with intent detection, context assembly, proposal generation, and HITL checkpoints
-- 🔐 **Authentication & RBAC**: JWT-based auth with role-based access control (Editor, Reviewer, Admin)
-- 📝 **Proposal System**: Human-in-the-loop workflow for all domain pack changes
-- 📚 **Version Control**: Immutable version history with diffs and rollback support
-- 🧠 **Memory Store**: Short-term and long-term memory with semantic search
-- 🔌 **MCP Integration**: Deterministic YAML operations via Model Context Protocol
-- 📊 **Audit Logging**: Complete audit trail for all significant events
-- 🔍 **LangSmith Integration**: Full observability and tracing for LLM workflows
+---
 
-## Architecture
+## 🚀 Quick Start (Recommended)
 
-```
-┌─────────────┐
-│   Frontend  │
-│   (React)   │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────────┐
-│         FastAPI Backend             │
-│  ┌──────────────────────────────┐   │
-│  │     API Layer (REST/WS)      │   │
-│  └────────────┬─────────────────┘   │
-│               ▼                     │
-│  ┌──────────────────────────────┐   │
-│  │   LangGraph Workflow         │   │
-│  │  • Intent Detection          │   │
-│  │  • Context Assembly          │   │
-│  │  • Proposal Generation       │   │
-│  │  • Human Checkpoint (HITL)   │   │
-│  │  • MCP Router                │   │
-│  │  • Commit Handler            │   │
-│  └────────────┬─────────────────┘   │
-│               ▼                     │
-│  ┌──────────────────────────────┐   │
-│  │   Service Layer              │   │
-│  │  • ProposalManager           │   │
-│  │  • VersionManager            │   │
-│  │  • MemoryStore               │   │
-│  │  • SessionManager            │   │
-│  │  • AuthService               │   │
-│  └────────────┬─────────────────┘   │
-│               ▼                     │
-│  ┌──────────────────────────────┐   │
-│  │   Database (PostgreSQL)      │   │
-│  │  • Users, Sessions           │   │
-│  │  • Proposals, Versions       │   │
-│  │  • Memory, Audit Logs        │   │
-│  └──────────────────────────────┘   │
-└─────────────────────────────────────┘
-       │
-       ▼
-┌─────────────────┐
-│   MCP Server    │
-│  (YAML Ops)     │
-└─────────────────┘
-```
+The easiest way to get started on Windows is using the automated setup script:
 
-## Quick Start
-
-### Prerequisites
-
-- Python 3.11+
-- PostgreSQL 14+
-- Redis 7+ (optional, for caching)
-- Node.js 18+ (for MCP server)
-
-### Installation
-
-1. **Clone and navigate to backend**:
-```bash
+```powershell
 cd backend
+.\setup.ps1
 ```
 
-2. **Create virtual environment**:
+**This script will:**
+1. Create a virtual environment (`.venv`)
+2. Install all required dependencies via `pip`
+3. Create a `.env` file from the example template
+4. Guide you through the database setup process
+
+---
+
+## 🛠️ Manual Installation
+
+If you prefer to set up the environment manually:
+
+### 1. Virtual Environment & Dependencies
 ```bash
+# Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
 
-3. **Install dependencies**:
-```bash
+# Windows:
+.venv\Scripts\Activate.ps1
+# Linux/Mac:
+source .venv/bin/activate
+
+# Install dependencies
+pip install --upgrade pip
 pip install -r requirements.txt
+pip install -r requirements-dev.txt
 ```
 
-4. **Configure environment**:
+### 2. Environment Variables
+Copy the example environment file and add your credentials:
 ```bash
 cp .env.example .env
-# Edit .env with your configuration
+```
+**Required fields in `.env`:**
+- `DATABASE_URL`: Connection string (e.g., `postgresql://user:pass@localhost:5432/db`)
+- `SECRET_KEY`: Security token (generate with `openssl rand -hex 32`)
+- `OPENAI_API_KEY`: Your OpenAI API key
+
+---
+
+## 🗄️ Database Setup
+
+### 1. Automated Setup
+Run the database script to create the DB and all required tables/indexes:
+```powershell
+.\setup_database.ps1
 ```
 
-5. **Initialize database**:
+### 2. Manual Setup
 ```bash
-python scripts/init_db.py
+# Create PostgreSQL database
+createdb domain_pack_db
+
+# Run initialization script for tables and schemas
+psql -d domain_pack_db -f init_db.sql
+
+# Apply any pending migrations
+alembic upgrade head
 ```
 
-6. **Run the server**:
-```bash
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+---
 
-The API will be available at `http://localhost:8000`
-- API Docs: `http://localhost:8000/api/v1/docs`
-- OpenAPI Schema: `http://localhost:8000/api/v1/openapi.json`
+## 🏃 Running the Application
 
-## Configuration
+1. **Activate the Environment:**
+   ```powershell
+   .venv\Scripts\Activate.ps1
+   ```
+2. **Start the Server:**
+   ```bash
+   uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+   ```
 
-Key environment variables in `.env`:
+### 📚 API Documentation
+Once the server is running, you can access interactive documentation at:
+- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
 
-```bash
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=domain_pack_mcp
-DB_USER=postgres
-DB_PASSWORD=postgres
+---
 
-# LLM Provider
-LLM_PROVIDER=groq  # or openai
-LLM_API_KEY=your_api_key
-LLM_MODEL=llama-3.3-70b-versatile
+## ⚒️ Common Commands
 
-# Security
-SECRET_KEY=your-secret-key-change-this
-ACCESS_TOKEN_EXPIRE_MINUTES=15
+| Task | Command |
+| :--- | :--- |
+| **Activate Venv** | `.venv\Scripts\Activate.ps1` (Win) or `source .venv/bin/activate` (Unix) |
+| **Start Server** | `uvicorn app.main:app --reload` |
+| **Run Tests** | `pytest` |
+| **New Migration** | `alembic revision --autogenerate -m "description"` |
+| **Apply Migrations** | `alembic upgrade head` |
+| **Format Code** | `black .` |
+| **Lint Check** | `ruff check .` |
 
-# LangSmith (optional)
-LANGSMITH_API_KEY=your_langsmith_key
-LANGSMITH_TRACING=true
-LANGSMITH_PROJECT=domain-pack-authoring
-```
+---
 
-## API Endpoints
-
-### Authentication
-- `POST /api/v1/auth/register` - Register new user
-- `POST /api/v1/auth/login` - Login and get JWT token
-- `GET /api/v1/auth/me` - Get current user info
-
-### Chat & Sessions
-- `POST /api/v1/chat/sessions` - Create new conversation session
-- `GET /api/v1/chat/sessions` - List active sessions
-- `POST /api/v1/chat/sessions/{id}/messages` - Send message (triggers LangGraph)
-- `WS /api/v1/chat/sessions/{id}/ws` - WebSocket for real-time updates
-
-### Proposals
-- `GET /api/v1/proposals/{id}` - Get proposal details
-- `GET /api/v1/proposals/sessions/{id}/proposals` - List session proposals
-- `POST /api/v1/proposals/{id}/confirm` - Confirm proposal (triggers commit)
-- `POST /api/v1/proposals/{id}/reject` - Reject proposal
-
-### Versions
-- `GET /api/v1/versions/domain-packs/{id}/versions` - List all versions
-- `GET /api/v1/versions/{id}` - Get version details
-- `GET /api/v1/versions/{id}/diff` - Get version diff
-- `POST /api/v1/versions/domain-packs/{id}/rollback` - Create rollback
-
-## Development
-
-### Project Structure
+## 📂 Project Structure
 
 ```
 backend/
 ├── app/
-│   ├── api/
-│   │   └── v1/
-│   │       ├── auth.py          # Auth endpoints
-│   │       ├── chat.py          # Chat endpoints
-│   │       ├── proposals.py     # Proposal endpoints
-│   │       ├── versions.py      # Version endpoints
-│   │       └── router.py        # API router
-│   ├── core/
-│   │   ├── config.py            # Settings
-│   │   └── logging.py           # Logging setup
-│   ├── db/
-│   │   ├── models.py            # SQLAlchemy models
-│   │   └── session.py           # DB session management
-│   ├── langgraph/
-│   │   ├── state.py             # State definition
-│   │   ├── nodes.py             # Workflow nodes
-│   │   └── workflow.py          # Workflow assembly
-│   ├── schemas/
-│   │   └── __init__.py          # Pydantic schemas
-│   ├── services/
-│   │   ├── auth_service.py      # Authentication
-│   │   ├── proposal_manager.py  # Proposal lifecycle
-│   │   ├── version_manager.py   # Version control
-│   │   ├── memory_store.py      # Memory management
-│   │   ├── session_manager.py   # Session management
-│   │   └── mcp_client.py        # MCP integration
-│   └── main.py                  # FastAPI app
-├── scripts/
-│   └── init_db.py               # DB initialization
-├── requirements.txt
-└── .env.example
+│   ├── api/          # API routes (Auth, Domains, Chat)
+│   ├── models/       # SQLAlchemy database models
+│   ├── schemas/      # Pydantic validation schemas
+│   ├── services/     # Business logic & services
+│   ├── langgraph/    # LangGraph AI state & nodes
+│   └── utils/        # Security, templates & helpers
+├── alembic/          # Database migration history
+├── init_db.sql       # Raw SQL schema initialization
+├── setup.ps1         # Automated environment setup
+└── setup_database.ps1 # Automated database setup
 ```
 
-### Running Tests
+---
 
+## 🧪 Testing
+Run the test suite using `pytest`:
 ```bash
-pytest tests/ -v
+pytest test_api.py
 ```
 
-### Database Migrations
+---
 
-Using Alembic:
+## 🛠️ API Raw JSON Payloads
 
-```bash
-# Create migration
-alembic revision --autogenerate -m "description"
+Use these payloads for testing the API via Postman, cURL, or other tools. All protected routes require an `Authorization: Bearer <token>` header.
 
-# Apply migrations
-alembic upgrade head
-
-# Rollback
-alembic downgrade -1
+### 1. Authentication
+**Signup (`POST /auth/signup`)**
+```json
+{
+  "email": "user@example.com",
+  "password": "strongpassword123"
+}
 ```
 
-## LangGraph Workflow
-
-The system uses a sophisticated LangGraph workflow:
-
-1. **Intent Detection**: Analyzes user message to detect intent (add_field, remove_field, etc.)
-2. **Context Assembly**: Gathers current snapshot, memories, and relevant context
-3. **Proposal Generation**: LLM generates structured proposal with operations
-4. **Human Checkpoint**: Pauses for user confirmation (HITL)
-5. **MCP Router**: Routes operations to MCP server for deterministic execution
-6. **Commit Handler**: Creates new version and updates database
-
-## Security
-
-- JWT-based authentication with refresh tokens
-- Role-based access control (RBAC)
-- Password hashing with bcrypt
-- CORS configuration
-- Rate limiting (configurable)
-- Audit logging for all significant events
-
-## Observability
-
-- Structured JSON logging
-- LangSmith integration for LLM tracing
-- Prometheus metrics (planned)
-- Health check endpoints
-
-## Production Deployment
-
-### Using Docker
-
-```bash
-docker build -t domain-pack-backend .
-docker run -p 8000:8000 --env-file .env domain-pack-backend
+**Login (`POST /auth/login`)**
+```json
+{
+  "email": "user@example.com",
+  "password": "strongpassword123"
+}
 ```
 
-### Using Docker Compose
-
-```bash
-docker-compose up -d
+### 2. Domain Management
+**Create Domain (`POST /domains`)**
+```json
+{
+  "name": "Healthcare Domain",
+  "description": "Medical knowledge graph config",
+  "version": "1.0.0"
+}
 ```
 
-### Environment Considerations
+**Update Domain (`PUT /domains/{id}`)**
+*All fields are optional*
+```json
+{
+  "name": "Updated Domain Name",
+  "description": "Updated description",
+  "version": "1.1.0",
+  "config_json": {
+    "entities": [],
+    "relationships": [],
+    "extraction_patterns": [],
+    "key_terms": []
+  }
+}
+```
 
-- Set `DEBUG=false` in production
-- Use strong `SECRET_KEY`
-- Configure proper CORS origins
-- Enable HTTPS
-- Set up database connection pooling
-- Configure Redis for session storage
-- Enable rate limiting
-- Set up monitoring and alerting
+### 3. Chat & AI Sessions
+**Start/Get Active Session (`POST /chat/sessions`)**
+```json
+{
+  "domain_config_id": "YOUR_DOMAIN_ID_HERE"
+}
+```
 
-## License
+**Send Message to AI (`POST /chat/sessions/{id}/message`)**
+```json
+{
+  "message": "Add an entity called 'Patient' with attributes 'name' and 'age'."
+}
+```
 
-MIT
+---
 
-## Support
-
-For issues and questions, please open an issue on GitHub.
+## 🏁 Next Steps
+1. **Register**: Create a user account at `/auth/signup`.
+2. **Login**: Authenticate at `/auth/login` to receive your JWT token.
+3. **Configure**: Start managing your domain packs or use the chat interface to build one conversationally! 🚀

@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
-import Dashboard from './components/Dashboard';
-import ConfigView from './components/ConfigView';
+import Dashboard from './pages/Dashboard';
+import ConfigView from './pages/ConfigView';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ProtectedRoute from './components/ProtectedRoute';
+import { AuthProvider } from './context/AuthContext';
 import { useChat } from './hooks/useChat';
 import { useChatSessions } from './hooks/useChatSessions';
 import { listVersions, rollbackVersion, deleteVersion, getDownloadUrl } from './services/api';
 
-function App() {
+function AppContent() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'config', 'chat'
   
@@ -21,7 +26,7 @@ function App() {
     activeSessionId,
     activeSession,
     addSession,
-    deleteSession,
+    deleteSession: deleteSessionHook,
     renameSession,
     updateSessionMessages,
     updateMcpSessionId,
@@ -81,7 +86,6 @@ function App() {
   };
 
   const handleShowChat = () => {
-    // This is now handled within the config view
     setIsChatOpen(true);
   };
 
@@ -92,7 +96,6 @@ function App() {
   };
 
   const handleCreateDomain = (newDomain) => {
-    // newDomain: {id, name, description, version, isTemplate}
     const session = {
       id: newDomain.id,
       name: newDomain.name,
@@ -108,11 +111,9 @@ function App() {
   const handleProceedToEnhancement = () => {
     if (!configSession) return;
     
-    // Check if session exists in our hook sessions
     let existingSession = sessions.find(s => s.mcpSessionId === configSession.session_id);
     
     if (!existingSession) {
-      // If it's a new template session, initialize it in our hook
       addSession({
         title: configSession.domain_name,
       });
@@ -142,7 +143,6 @@ function App() {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden text-slate-900 font-sans">
-      {/* Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen} 
         toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
@@ -151,8 +151,7 @@ function App() {
         onShowChat={handleShowChat}
       />
       
-      {/* Main Content */}
-      <main className={`flex-1 flex flex-col h-full relative transition-all duration-300 ease-in-out bg-white`}>
+      <main className={`flex-1 flex flex-col h-full relative transition-all duration-300 ease-in-out bg-white overflow-y-auto`}>
         {activeView === 'config' && (
           <div className="flex h-full w-full overflow-hidden">
             <div className={`flex-1 overflow-hidden transition-all duration-300 ${isChatOpen ? 'w-1/2' : 'w-full'}`}>
@@ -175,8 +174,8 @@ function App() {
                   onSendMessage={sendMessage} 
                   onConfirmIntent={handleConfirmIntent}
                   messagesEndRef={messagesEndRef}
-                  sidebarOpen={false} // Chat sidebar is fixed in this view
-                  toggleSidebar={() => {}} // No toggle in this view
+                  sidebarOpen={false}
+                  toggleSidebar={() => {}} 
                   isEnhancementView={true}
                   configSession={configSession}
                   onClose={() => setIsChatOpen(false)}
@@ -196,6 +195,28 @@ function App() {
         )}
       </main>
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<Signup />} />
+          {/* Proper route protection restored */}
+          <Route 
+            path="/*" 
+            element={
+              <ProtectedRoute>
+                <AppContent />
+              </ProtectedRoute>
+            } 
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
   );
 }
 

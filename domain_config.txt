@@ -1,0 +1,112 @@
+JSON:
+    {
+    "name": "<DOMAIN_NAME>",
+    "description": "<SHORT_DOMAIN_DESCRIPTION>",
+    "version": "1.0.0",
+
+    "entities": [
+        {
+        "name": "<EntityName>",
+        "type": "<ENTITY_TYPE>",
+        "description": "<What this entity represents>",
+        "attributes": [
+            {
+            "name": "<attribute_name>",
+            "description": "<Description of the attribute>"
+            }
+        ],
+        "synonyms": [
+            "<alternative_term_1>",
+            "<alternative_term_2>"
+        ]
+        }
+    ],
+
+    "relationships": [
+        {
+        "name": "<RELATIONSHIP_NAME>",
+        "from": "<SOURCE_ENTITY_TYPE>",
+        "to": "<TARGET_ENTITY_TYPE>",
+        "description": "<Meaning of this relationship>",
+        "attributes": [
+            {
+            "name": "<attribute_name>",
+            "description": "<Relationship-specific attribute>"
+            }
+        ]
+        }
+    ],
+
+    "extraction_patterns": [
+        {
+        "pattern": "<REGEX_PATTERN>",
+        "entity_type": "<ENTITY_TYPE>",
+        "attribute": "<ATTRIBUTE_NAME>",
+        "extract_full_match": true,
+        "confidence": 0.9
+        }
+    ],
+
+    "key_terms": [
+        "<key_term_1>",
+        "<key_term_2>",
+        "<key_term_3>"
+    ]
+    }
+    YAML:
+    name: "<DOMAIN_NAME>"
+    description: "<SHORT_DOMAIN_DESCRIPTION>"
+    version: "1.0.0"
+
+    # =========================
+    # DOMAIN ENTITIES
+    # =========================
+    # Entities represent core objects in the domain.
+    # Attributes must describe intrinsic properties of the entity only.
+
+    entities:
+    - name: "<EntityName>"
+        type: "<ENTITY_TYPE>"
+        description: "<What this entity represents>"
+        attributes:
+        - name: "<attribute_name>"
+            description: "<Description of the attribute>"
+        synonyms:
+        - "<alternative_term_1>"
+        - "<alternative_term_2>"
+
+    # =========================
+    # ENTITY RELATIONSHIPS
+    # =========================
+    # Relationships define how entities connect to each other.
+
+    relationships:
+    - name: "<RELATIONSHIP_NAME>"
+        from: "<SOURCE_ENTITY_TYPE>"
+        to: "<TARGET_ENTITY_TYPE>"
+        description: "<Meaning of this relationship>"
+        attributes:
+        - name: "<attribute_name>"
+            description: "<Relationship-specific attribute>"
+
+    # =========================
+    # EXTRACTION PATTERNS
+    # =========================
+    # Regex or rule-based patterns applied before LLM extraction.
+
+    extraction_patterns:
+    - pattern: "<REGEX_PATTERN>"
+        entity_type: "<ENTITY_TYPE>"
+        attribute: "<ATTRIBUTE_NAME>"
+        extract_full_match: true
+        confidence: 0.90
+
+    # =========================
+    # DOMAIN KEY TERMS
+    # =========================
+    # Vocabulary to guide semantic understanding and question generation.
+
+    key_terms:
+    - "<key_term_1>"
+    - "<key_term_2>"
+    - "<key_term_3>"

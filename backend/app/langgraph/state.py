@@ -1,50 +1,85 @@
-"""
-LangGraph State Definition
-Defines the state schema for the domain pack authoring workflow
-"""
-from typing import TypedDict, Annotated, Optional, List, Dict, Any
-from langchain_core.messages import BaseMessage
-from langgraph.graph import add_messages
+"""LangGraph state schema for domain configuration chatbot."""
+from typing import TypedDict, List, Dict, Any, Optional
 
 
-class DomainPackState(TypedDict):
+class DomainGraphState(TypedDict):
     """
-    State for domain pack authoring workflow.
-    This schema defines the 'single source of truth' that flows through the LangGraph cycle.
+    State maintained throughout the conversation.
+    This state is rebuilt on each request from database data.
     """
+    # Context
+    domain_config: Dict[str, Any]  # Current domain configuration
+    entity_index: Dict[str, Dict[str, Any]]  # Quick entity lookup by type
+    relationship_index: Dict[str, List[Dict[str, Any]]]  # Relationships by type
     
-    # --- User Input (Initialization) ---
-    user_message: str  # The primary text input from the user for the current turn
-    user_id: str       # Internal ID of the requesting user (for auditing/permissions)
-    session_id: str    # ID of the contemporary chat session
-    domain_pack_id: str # ID of the specific domain pack being edited
+    # Conversation
+    messages: List[Dict[str, str]]  # Chat history (last N messages)
+    user_message: str  # Current user input
     
-    # --- Context (Knowledge & Environment) ---
-    current_snapshot: Optional[Dict[str, Any]]  # The current YAML/JSON state of the domain pack
-    base_template: Optional[Dict[str, Any]]     # The base template used for new packs
-    schema: Optional[Dict[str, Any]]            # The domain-specific validation schema
-    relevant_memories: Optional[List[Dict[str, Any]]] # Past user preferences or relevant context from RAG
-    search_results: Optional[List[Dict[str, Any]]]    # Results from external tools or knowledge base search
+    # Intent & Action
+    intent: str  # Detected intent (add_entity, edit_relationship, etc.)
+    target_entity: Optional[str]  # Entity being modified
+    target_relationship: Optional[str]  # Relationship being modified
+    proposed_patch: Optional[List[Dict[str, Any]]]  # JSONPatch operations
     
-    # --- Intent & Reasoning ---
-    detected_intent: Optional[str]              # The high-level action identified (e.g., 'add_entity')
-    extracted_entities: Optional[Dict[str, Any]] # Key parameters extracted (e.g., entity name: 'Patient')
+    # Reasoning (runtime only, not persisted)
+    reasoning_steps: List[str]  # Chain of thought
     
-    # --- Proposal (AI Generated Plan) ---
-    proposal: Optional[Dict[str, Any]]          # Human-readable summary of the proposed changes
-    operations: Optional[List[Dict[str, Any]]]  # Low-level technical instructions for the MCP server
-    confidence: Optional[float]                  # AI's confidence in the proposal (0.0 to 1.0)
-    questions: Optional[List[Dict[str, Any]]]   # Clarification questions for the user if intent is unclear
+    # Confirmation
+    needs_confirmation: bool  # Whether user confirmation is required
+    confirmation_message: Optional[str]  # Message to show user
+    awaiting_confirmation: bool  # Waiting for yes/no response
     
-    # --- HITL (Human-in-the-Loop) ---
-    requires_confirmation: bool                 # true if the workflow must pause for user approval
-    user_response: Optional[str]                # Input gathered during an HITL pause
-    confirmed: Optional[bool]                   # Final 'green light' from the user to apply changes
+    # Output
+    assistant_response: str  # Response to send to user
+    updated_config: Optional[Dict[str, Any]]  # Updated config if changes applied
+    error: Optional[str]  # Error message if any
+
+
+def create_initial_state(
+    domain_config: Dict[str, Any],
+    user_message: str,
+    chat_history: List[Dict[str, str]]
+) -> DomainGraphState:
+    """
+    Create initial state for graph execution.
     
-    # --- MCP & Commit Result ---
-    mcp_response: Optional[Dict[str, Any]]      # Output from the pure transformation engine (updated YAML/diff)
-    new_version_id: Optional[str]              # The ID of the committed version in the database
-    error: Optional[str]                        # Blocking error message if any node fails
+    Args:
+        domain_config: Current domain configuration
+        user_message: User's message
+        chat_history: Recent chat messages
+        
+    Returns:
+        Initial graph state
+    """
+    # Build entity index
+    entity_index = {}
+    for entity in domain_config.get("entities", []):
+        entity_index[entity["type"]] = entity
     
-    # --- Conversation History ---
-    messages: Annotated[List[BaseMessage], add_messages] # Persistent chat history with message auto-merging
+    # Build relationship index
+    relationship_index = {}
+    for rel in domain_config.get("relationships", []):
+        rel_type = rel["name"]
+        if rel_type not in relationship_index:
+            relationship_index[rel_type] = []
+        relationship_index[rel_type].append(rel)
+    
+    return DomainGraphState(
+        domain_config=domain_config,
+        entity_index=entity_index,
+        relationship_index=relationship_index,
+        messages=chat_history,
+        user_message=user_message,
+        intent="",
+        target_entity=None,
+        target_relationship=None,
+        proposed_patch=None,
+        reasoning_steps=[],
+        needs_confirmation=False,
+        confirmation_message=None,
+        awaiting_confirmation=False,
+        assistant_response="",
+        updated_config=None,
+        error=None
+    )
