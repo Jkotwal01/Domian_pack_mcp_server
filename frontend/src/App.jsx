@@ -7,6 +7,7 @@ import ConfigView from './pages/ConfigView';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
+import GuestRoute from './components/GuestRoute';
 import { AuthProvider } from './context/AuthContext';
 import { useChat } from './hooks/useChat';
 import { useChatSessions } from './hooks/useChatSessions';
@@ -203,8 +204,8 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
+          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/signup" element={<GuestRoute><Signup /></GuestRoute>} />
           {/* Proper route protection restored */}
           <Route 
             path="/*" 
