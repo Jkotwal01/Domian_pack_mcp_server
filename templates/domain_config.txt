@@ -12,7 +12,8 @@ JSON:
         "attributes": [
             {
             "name": "<attribute_name>",
-            "description": "<Description of the attribute>"
+            "description": "<Description of the attribute>",
+            "examples": ["<example_1>","<example_2>"]
             }
         ],
         "synonyms": [
@@ -31,7 +32,8 @@ JSON:
         "attributes": [
             {
             "name": "<attribute_name>",
-            "description": "<Relationship-specific attribute>"
+            "description": "<Relationship-specific attribute>",
+            "examples": ["<example_1>","<example_2>"]   
             }
         ]
         }
@@ -71,6 +73,7 @@ JSON:
         attributes:
         - name: "<attribute_name>"
             description: "<Description of the attribute>"
+            examples: ["<example_1>","<example_2>"]
         synonyms:
         - "<alternative_term_1>"
         - "<alternative_term_2>"
@@ -88,6 +91,7 @@ JSON:
         attributes:
         - name: "<attribute_name>"
             description: "<Relationship-specific attribute>"
+            examples: ["<example_1>","<example_2>"] 
 
     # =========================
     # EXTRACTION PATTERNS
