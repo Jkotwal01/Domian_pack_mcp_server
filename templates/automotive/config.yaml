@@ -1,0 +1,354 @@
+name: "Automotive"
+description: "Automotive warranty and service domain"
+version: "2.0.0"
+
+# Entities: Define the types of entities that should be extracted from documents
+# Purpose: These entity types guide AI question generation and become node labels in the knowledge graph
+# Usage: Used during question generation to create entity-focused questions, and during processing to classify extracted entities
+entities:
+  - name: "Vehicle"
+    type: "VEHICLE"
+    attributes:
+      - "vin"
+      - "make"
+      - "model"
+      - "year"
+      - "mileage"
+      - "engine_type"
+      - "transmission"
+      - "fuel_type"
+      - "color"
+      - "trim_level"
+      - "purchase_date"
+      - "purchase_price"
+      - "current_value"
+      - "registration_state"
+      - "license_plate"
+      - "insurance_info"
+    synonyms:
+      - "car"
+      - "automobile"
+      - "truck"
+      - "SUV"
+      - "sedan"
+      - "coupe"
+      - "convertible"
+      - "hatchback"
+      - "wagon"
+      - "crossover"
+      - "pickup"
+      - "van"
+      - "minivan"
+  
+  - name: "Warranty"
+    type: "WARRANTY"
+    attributes:
+      - "type"
+      - "duration"
+      - "coverage"
+      - "start_date"
+      - "end_date"
+      - "mileage_limit"
+      - "deductible"
+      - "terms_conditions"
+      - "transferable"
+      - "extended_coverage"
+      - "exclusions"
+    synonyms:
+      - "guarantee"
+      - "protection"
+      - "coverage"
+      - "extended_warranty"
+      - "service_contract"
+      - "protection_plan"
+  
+  - name: "Service"
+    type: "SERVICE"
+    attributes:
+      - "type"
+      - "date"
+      - "mileage"
+      - "technician"
+      - "cost"
+      - "labor_hours"
+      - "parts_cost"
+      - "warranty_coverage"
+      - "service_code"
+      - "description"
+      - "recommendations"
+      - "next_service_due"
+    synonyms:
+      - "repair"
+      - "maintenance"
+      - "inspection"
+      - "service_visit"
+      - "work_order"
+      - "job"
+      - "procedure"
+  
+  - name: "Component"
+    type: "COMPONENT"
+    attributes:
+      - "part_number"
+      - "name"
+      - "category"
+      - "manufacturer"
+      - "condition"
+      - "replacement_date"
+      - "warranty_period"
+      - "cost"
+      - "availability"
+      - "compatibility"
+    synonyms:
+      - "part"
+      - "spare"
+      - "accessory"
+      - "assembly"
+      - "module"
+      - "system"
+      - "component"
+      - "unit"
+  
+  - name: "Customer"
+    type: "CUSTOMER"
+    attributes:
+      - "customer_id"
+      - "name"
+      - "address"
+      - "phone"
+      - "email"
+      - "preferred_service_center"
+      - "service_history"
+      - "loyalty_status"
+      - "payment_method"
+      - "communication_preferences"
+    synonyms:
+      - "owner"
+      - "client"
+      - "buyer"
+      - "lessee"
+      - "driver"
+      - "user"
+  
+  - name: "Service Center"
+    type: "SERVICE_CENTER"
+    attributes:
+      - "name"
+      - "address"
+      - "phone"
+      - "hours"
+      - "services_offered"
+      - "certification_level"
+      - "technician_count"
+      - "rating"
+      - "specialties"
+      - "equipment"
+    synonyms:
+      - "dealership"
+      - "garage"
+      - "shop"
+      - "service_department"
+      - "repair_facility"
+      - "maintenance_center"
+
+# Relationships: Define the types of relationships between entities
+# Purpose: Guide relationship extraction and create edges in the knowledge graph
+# Usage: Used during question generation for relationship-focused questions, and during processing to identify connections between entities
+relationships:
+  - from: "VEHICLE"
+    to: "WARRANTY"
+    type: "HAS_WARRANTY"
+    properties:
+      - "active"
+      - "expired"
+      - "transfer_date"
+  
+  - from: "VEHICLE"
+    to: "SERVICE"
+    type: "HAS_SERVICE"
+    properties:
+      - "date"
+      - "mileage"
+      - "service_type"
+  
+  - from: "CUSTOMER"
+    to: "VEHICLE"
+    type: "OWNS"
+    properties:
+      - "ownership_type"
+      - "purchase_date"
+      - "registration_date"
+  
+  - from: "SERVICE"
+    to: "COMPONENT"
+    type: "REPLACES"
+    properties:
+      - "replacement_reason"
+      - "cost"
+      - "warranty_coverage"
+  
+  - from: "CUSTOMER"
+    to: "SERVICE_CENTER"
+    type: "VISITS"
+    properties:
+      - "visit_frequency"
+      - "preference"
+      - "rating"
+  
+  - from: "SERVICE_CENTER"
+    to: "SERVICE"
+    type: "PERFORMS"
+    properties:
+      - "technician_assigned"
+      - "completion_time"
+      - "quality_rating"
+
+# Extraction Patterns: Regex patterns for extracting entities from structured text
+# Purpose: Pre-extract entities using regex before LLM processing (faster, more accurate for structured data)
+# Usage: Can extract entities before LLM processing, or validate/supplement LLM-extracted entities
+# Format: Regex with named groups that map to entity types and attributes
+extraction_patterns:
+  - pattern: "VIN: (?P<vin>[A-HJ-NPR-Z0-9]{17})"
+    entity_type: "VEHICLE"
+    attribute: "vin"
+  
+  - pattern: "(?P<make>\\w+) (?P<model>\\w+) (?P<year>\\d{4})"
+    entity_type: "VEHICLE"
+    attribute: "make"
+  
+  - pattern: "Mileage: (?P<mileage>[0-9,]+) miles"
+    entity_type: "VEHICLE"
+    attribute: "mileage"
+  
+  - pattern: "Service Date: (?P<date>[0-9]{2}/[0-9]{2}/[0-9]{4})"
+    entity_type: "SERVICE"
+    attribute: "date"
+  
+  - pattern: "Part #: (?P<part_number>[A-Z0-9-]+)"
+    entity_type: "COMPONENT"
+    attribute: "part_number"
+
+key_terms:
+  - "warranty"
+  - "service"
+  - "repair"
+  - "maintenance"
+  - "coverage"
+  - "deductible"
+  - "claim"
+  - "approval"
+  - "oil_change"
+  - "brake_service"
+  - "transmission_service"
+  - "engine_diagnostic"
+  - "emissions_test"
+  - "safety_inspection"
+  - "recall"
+  - "technical_service_bulletin"
+  - "recall_campaign"
+  - "software_update"
+  - "calibration"
+  - "alignment"
+  - "balancing"
+  - "tire_rotation"
+  - "filter_replacement"
+  - "fluid_service"
+  - "belt_replacement"
+  - "hose_replacement"
+  - "battery_service"
+  - "alternator"
+  - "starter"
+  - "ignition_system"
+  - "fuel_system"
+  - "exhaust_system"
+  - "suspension"
+  - "steering"
+  - "air_conditioning"
+  - "heating_system"
+  - "electrical_system"
+  - "body_work"
+  - "paint_service"
+  - "detailing"
+  - "rust_prevention"
+  - "undercoating"
+  - "accessories"
+  - "modifications"
+  - "performance_upgrades"
+  - "safety_features"
+  - "driver_assistance"
+  - "infotainment"
+  - "connectivity"
+  - "telematics"
+
+# Business Patterns: Define domain-specific workflows and patterns that guide entity extraction and question generation
+# Purpose: Represent real-world business processes
+# Usage: Help AI understand domain workflows, generate business-process questions, and identify related entities when patterns are detected
+# Note: Pattern names use PascalCase, triggers use snake_case
+business_patterns:
+  - name: "warranty_claims"
+    triggers: ["warranty", "claim", "coverage", "deductible"]
+    entities: ["WARRANTY", "SERVICE", "VEHICLE", "CUSTOMER"]
+    tags: ["warranty", "claims"]
+    business_context:
+      cost_sensitivity: true
+      fraud_check: true
+      recall_check: true
+
+  - name: "service_workflow"
+    triggers: ["service", "repair", "inspection", "work_order"]
+    entities: ["SERVICE", "COMPONENT", "SERVICE_CENTER"]
+    tags: ["service", "operations"]
+    business_context:
+      priority_levels: ["low", "medium", "high"]
+      parts_availability_impact: true
+      customer_satisfaction_impact: true
+
+# Reasoning Templates: Step-by-step reasoning processes for domain-specific logic
+# Purpose: Guide structured Chain of Thought (COT) reasoning for complex entity extraction and validation
+# Usage: Used during entity extraction to enforce systematic reasoning steps (ANALYZE → CLASSIFY → VALIDATE → ENRICH → CONNECT)
+# Structure: Ordered steps with triggers that indicate when this reasoning should be applied
+reasoning_templates:
+  - name: "root_cause_analysis"
+    steps:
+      1: "identify_symptoms"
+      2: "map_related_components"
+      3: "check_service_history"
+      4: "assess_warranty_coverage"
+      5: "recommend_fix"
+    triggers: ["issue", "failure", "fault", "error"]
+    confidence_threshold: 0.7
+
+  - name: "recall_check"
+    steps:
+      1: "identify_vehicle_model"
+      2: "check_recall_database"
+      3: "assess_risk_level"
+      4: "notify_customer"
+    triggers: ["recall", "campaign", "bulletin"]
+    confidence_threshold: 0.8
+
+# Enhanced relationship types
+relationship_types:
+  - type: "HAS_WARRANTY"
+    business_context:
+      transfer_tracking: true
+      expiration_alerts: true
+  - type: "HAS_SERVICE"
+    business_context:
+      SLA_effect: true
+      repeat_issue_detection: true
+
+# Entity aliases
+entity_aliases:
+  VEHICLE:
+    - "car"
+    - "automobile"
+  SERVICE:
+    - "repair"
+    - "maintenance"
+
+# Business context attributes
+business_context:
+  priority_levels: ["low", "medium", "high", "urgent"]
+  warranty_types: ["basic", "powertrain", "bumper_to_bumper", "extended"]
+  service_categories: ["maintenance", "repair", "inspection"]

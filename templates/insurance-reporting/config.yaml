@@ -1,0 +1,1280 @@
+name: "Insurance_Reporting"
+description: "Comprehensive domain configuration for insurance and reinsurance reporting data extraction, covering financial metrics, solvency, claims, ESG, and business performance"
+version: "1.0.0"
+
+# Domain-specific question generation settings
+question_counts:
+  min: 20
+  max: 60
+  optimal: 35
+
+processing_complexity: 1.5  # Higher complexity for financial reporting
+
+# Entities: Define the types of entities that should be extracted from documents (e.g., COMPANY, BUSINESS_UNIT, CLAIM)
+# Purpose: These entity types guide AI question generation and become node labels in the knowledge graph
+# Usage: Used during question generation to create entity-focused questions, and during processing to classify extracted entities
+entities:
+  # Core Insurance Entities
+  - name: "Company"
+    type: "COMPANY"
+    attributes:
+      - "company_id"
+      - "legal_name"
+      - "ticker"
+      - "exchange"
+      - "headquarters"
+      - "report_period"
+      - "report_date"
+      - "accounting_framework"
+      - "currency_reporting"
+      - "website"
+      - "business_type"
+      - "regulatory_jurisdiction"
+    synonyms:
+      - "insurer"
+      - "reinsurer"
+      - "group"
+      - "carrier"
+      - "insurance_company"
+      - "reinsurance_company"
+
+  - name: "Business Unit"
+    type: "BUSINESS_UNIT"
+    attributes:
+      - "bu_id"
+      - "name"
+      - "lob"
+      - "region"
+      - "leader"
+      - "status"
+      - "performance_rating"
+      - "strategic_importance"
+    synonyms:
+      - "segment"
+      - "division"
+      - "unit"
+      - "line_of_business"
+      - "operating_segment"
+
+  - name: "Financial Metric"
+    type: "FIN_METRIC"
+    attributes:
+      - "metric_name"
+      - "metric_value"
+      - "unit"
+      - "period"
+      - "as_of_date"
+      - "yoy_change"
+      - "target_flag"
+      - "target_period"
+      - "basis"
+      - "notes"
+      - "benchmark_value"
+      - "industry_average"
+    synonyms:
+      - "kpi"
+      - "key_figure"
+      - "indicator"
+      - "measure"
+      - "financial_indicator"
+      - "performance_metric"
+
+  - name: "Capital Solvency"
+    type: "CAPITAL"
+    attributes:
+      - "ratio_name"
+      - "ratio_value"
+      - "as_of_date"
+      - "target_range"
+      - "capital_repatriation"
+      - "liquidity_notes"
+      - "regulatory_requirement"
+      - "buffer_amount"
+      - "stress_test_result"
+    synonyms:
+      - "solvency"
+      - "capital_position"
+      - "regulatory_capital"
+      - "economic_capital"
+
+  - name: "Dividend Buyback"
+    type: "SHR_RETURN"
+    attributes:
+      - "action_type"
+      - "amount_per_share"
+      - "currency"
+      - "record_date"
+      - "pay_date"
+      - "yoy_change_pct"
+      - "policy_comment"
+      - "total_amount"
+      - "dividend_yield"
+    synonyms:
+      - "shareholder_return"
+      - "capital_repatriation"
+      - "dividend_policy"
+      - "share_repurchase"
+
+  - name: "Claims Stats"
+    type: "CLAIMS_STATS"
+    attributes:
+      - "claims_paid_amount"
+      - "currency"
+      - "num_claims"
+      - "severity_mix"
+      - "cat_losses_amount"
+      - "reserve_change_amount"
+      - "period"
+      - "claims_frequency"
+      - "average_claim_size"
+      - "reserve_adequacy"
+    synonyms:
+      - "claims_paid"
+      - "losses"
+      - "reserving"
+      - "claims_experience"
+      - "loss_ratio"
+
+  - name: "Risk Disclosure"
+    type: "RISK_DISCLOSURE"
+    attributes:
+      - "risk_type"
+      - "description"
+      - "scenario"
+      - "impact_metric"
+      - "mitigation"
+      - "horizon"
+      - "probability"
+      - "severity"
+      - "monitoring_frequency"
+    synonyms:
+      - "risk_management"
+      - "risk_factor"
+      - "risk_exposure"
+      - "risk_scenario"
+
+  - name: "Investment Portfolio"
+    type: "INVEST_PORTFOLIO"
+    attributes:
+      - "roi"
+      - "reinvestment_yield"
+      - "asset_mix"
+      - "duration"
+      - "carbon_intensity_change"
+      - "period"
+      - "total_assets"
+      - "credit_rating"
+      - "diversification_ratio"
+    synonyms:
+      - "investments"
+      - "asset_management"
+      - "investment_strategy"
+      - "portfolio_performance"
+
+  - name: "Sustainability Metric"
+    type: "ESG_METRIC"
+    attributes:
+      - "topic"
+      - "metric"
+      - "value"
+      - "unit"
+      - "baseline"
+      - "period"
+      - "target_year"
+      - "progress_status"
+      - "verification_method"
+    synonyms:
+      - "sustainability"
+      - "ESG"
+      - "climate_target"
+      - "environmental_metric"
+      - "social_metric"
+      - "governance_metric"
+
+  - name: "Guidance Outlook"
+    type: "GUIDANCE"
+    attributes:
+      - "target_name"
+      - "target_value"
+      - "unit"
+      - "target_period"
+      - "assumptions"
+      - "confidence_language"
+      - "achievement_probability"
+      - "risk_factors"
+    synonyms:
+      - "outlook"
+      - "targets"
+      - "forecast"
+      - "guidance"
+      - "forward_looking"
+
+  - name: "Executive"
+    type: "EXECUTIVE"
+    attributes:
+      - "name"
+      - "title"
+      - "tenure_start"
+      - "tenure_end"
+      - "quote"
+      - "compensation"
+      - "board_membership"
+      - "experience_years"
+    synonyms:
+      - "CEO"
+      - "CFO"
+      - "Chairman"
+      - "Board Member"
+      - "C-suite"
+      - "leadership"
+
+  - name: "Document Section"
+    type: "DOC_SECTION"
+    attributes:
+      - "section_title"
+      - "page_range"
+      - "hierarchy"
+      - "section_id"
+      - "content_type"
+      - "data_density"
+    synonyms:
+      - "chapter"
+      - "heading"
+      - "section"
+      - "subsection"
+
+  # Additional Reporting-Specific Entities
+  - name: "Regulatory Requirement"
+    type: "REGULATORY"
+    attributes:
+      - "requirement_name"
+      - "regulatory_body"
+      - "compliance_status"
+      - "deadline"
+      - "penalty_risk"
+      - "implementation_cost"
+    synonyms:
+      - "regulation"
+      - "compliance"
+      - "regulatory_standard"
+      - "legal_requirement"
+
+  - name: "Audit Opinion"
+    type: "AUDIT"
+    attributes:
+      - "auditor_name"
+      - "opinion_type"
+      - "audit_date"
+      - "material_weaknesses"
+      - "going_concern"
+      - "audit_fees"
+    synonyms:
+      - "audit_report"
+      - "auditor_opinion"
+      - "financial_audit"
+      - "external_audit"
+
+# Relationships: Define the types of relationships between entities
+# Purpose: Guide relationship extraction and create edges in the knowledge graph
+# Usage: Used during question generation for relationship-focused questions, and during processing to identify connections between entities
+relationships:
+  - name: "Has Business Unit"
+    from: "COMPANY"
+    to: "BUSINESS_UNIT"
+    attributes:
+      - "period"
+      - "notes"
+      - "ownership_percentage"
+      - "strategic_role"
+      - "performance_rating"
+      - "resource_allocation"
+    synonyms:
+      - "operates"
+      - "owns"
+      - "manages"
+      - "controls"
+      - "directs"
+
+  - name: "Reports"
+    from: "COMPANY"
+    to: "FIN_METRIC"
+    attributes:
+      - "period"
+      - "basis"
+      - "reporting_framework"
+      - "audit_status"
+      - "materiality_threshold"
+      - "disclosure_level"
+    synonyms:
+      - "discloses"
+      - "publishes"
+      - "announces"
+      - "communicates"
+      - "reveals"
+
+  - name: "Business Unit Reports"
+    from: "BUSINESS_UNIT"
+    to: "FIN_METRIC"
+    attributes:
+      - "period"
+      - "basis"
+      - "segment_performance"
+      - "contribution_to_group"
+      - "growth_rate"
+      - "profitability_margin"
+    synonyms:
+      - "generates"
+      - "contributes"
+      - "delivers"
+      - "produces"
+      - "achieves"
+
+  - name: "Capital Position"
+    from: "COMPANY"
+    to: "CAPITAL"
+    attributes:
+      - "as_of_date"
+      - "regulatory_framework"
+      - "buffer_level"
+      - "stress_test_passed"
+      - "capital_efficiency"
+      - "risk_adjusted_return"
+    synonyms:
+      - "maintains"
+      - "holds"
+      - "manages"
+      - "allocates"
+      - "optimizes"
+
+  - name: "Announces"
+    from: "COMPANY"
+    to: "SHR_RETURN"
+    attributes:
+      - "period"
+      - "policy_comment"
+      - "board_approval_date"
+      - "market_reaction"
+      - "dividend_yield"
+      - "payout_ratio"
+    synonyms:
+      - "declares"
+      - "proposes"
+      - "implements"
+      - "executes"
+      - "distributes"
+
+  - name: "Guides"
+    from: "COMPANY"
+    to: "GUIDANCE"
+    attributes:
+      - "announcement_date"
+      - "confidence_level"
+      - "market_expectations"
+      - "achievement_track_record"
+      - "assumptions"
+      - "risk_factors"
+    synonyms:
+      - "provides"
+      - "issues"
+      - "updates"
+      - "forecasts"
+      - "projects"
+
+  - name: "Discloses ESG"
+    from: "COMPANY"
+    to: "ESG_METRIC"
+    attributes:
+      - "period"
+      - "baseline"
+      - "verification_status"
+      - "stakeholder_feedback"
+      - "progress_status"
+      - "target_year"
+    synonyms:
+      - "reports"
+      - "measures"
+      - "tracks"
+      - "monitors"
+      - "assesses"
+
+  - name: "Contains Section"
+    from: "COMPANY"
+    to: "DOC_SECTION"
+    attributes:
+      - "page_range"
+      - "content_type"
+      - "regulatory_requirement"
+      - "stakeholder_importance"
+      - "data_density"
+      - "review_status"
+    synonyms:
+      - "includes"
+      - "covers"
+      - "addresses"
+      - "discusses"
+      - "presents"
+
+  - name: "States"
+    from: "EXECUTIVE"
+    to: "GUIDANCE"
+    attributes:
+      - "quote"
+      - "date"
+      - "context"
+      - "market_conditions"
+      - "confidence_level"
+      - "forward_looking_flag"
+    synonyms:
+      - "comments"
+      - "remarks"
+      - "forecasts"
+      - "predicts"
+      - "anticipates"
+
+  - name: "Paid"
+    from: "COMPANY"
+    to: "CLAIMS_STATS"
+    attributes:
+      - "period"
+      - "claim_type"
+      - "settlement_method"
+      - "reserve_adequacy"
+      - "severity_level"
+      - "frequency_rate"
+    synonyms:
+      - "settles"
+      - "processes"
+      - "handles"
+      - "resolves"
+      - "disburses"
+
+  - name: "Subject To"
+    from: "COMPANY"
+    to: "REGULATORY"
+    attributes:
+      - "compliance_status"
+      - "last_review_date"
+      - "next_review_date"
+      - "penalty_history"
+      - "regulatory_rating"
+      - "supervisory_action"
+    synonyms:
+      - "regulated_by"
+      - "complies_with"
+      - "monitored_by"
+      - "supervised_by"
+      - "governed_by"
+
+  - name: "Audited By"
+    from: "COMPANY"
+    to: "AUDIT"
+    attributes:
+      - "audit_scope"
+      - "audit_fees"
+      - "audit_duration"
+      - "audit_opinion"
+      - "material_weaknesses"
+      - "going_concern"
+    synonyms:
+      - "reviewed_by"
+      - "examined_by"
+      - "validated_by"
+      - "verified_by"
+      - "assessed_by"
+
+  - name: "Invests In"
+    from: "COMPANY"
+    to: "INVEST_PORTFOLIO"
+    attributes:
+      - "investment_amount"
+      - "asset_class"
+      - "duration"
+      - "risk_level"
+      - "expected_return"
+      - "liquidity_profile"
+    synonyms:
+      - "allocates_to"
+      - "deploys_capital"
+      - "manages_assets"
+      - "optimizes_portfolio"
+      - "diversifies"
+
+  - name: "Exposed To"
+    from: "COMPANY"
+    to: "RISK_DISCLOSURE"
+    attributes:
+      - "exposure_amount"
+      - "probability"
+      - "severity"
+      - "mitigation_status"
+      - "monitoring_frequency"
+      - "stress_test_result"
+    synonyms:
+      - "faces"
+      - "confronts"
+      - "manages"
+      - "monitors"
+      - "hedges"
+
+# Extraction Patterns: Regex patterns for extracting entities from structured text
+# Purpose: Pre-extract entities using regex before LLM processing (faster, more accurate for structured data)
+# Usage: Can extract entities before LLM processing, or validate/supplement LLM-extracted entities
+# Format: Regex with named groups that map to entity types and attributes
+extraction_patterns:
+  # Financial Metrics Patterns
+  - pattern: "(?i)(net income|profit|earnings) (of|was|amounted to)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.95
+    fixed_values: {"metric_name": "net_income"}
+
+  - pattern: "(?i)IFRS\\s*return on equity\\s*\\(ROE\\)\\s*(of|:)\\s*([0-9.]+)\\s*%|ROE\\s*(of|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.95
+    fixed_values: {"metric_name": "roe", "unit": "%"}
+
+  - pattern: "(?i)(insurance revenue|gross written premium|GWP)\\s*(of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.90
+    fixed_values: {"metric_name": "insurance_revenue"}
+
+  - pattern: "(?i)combined ratio\\s*(of|for 20\\d{2}|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.95
+    fixed_values: {"metric_name": "combined_ratio", "unit": "%"}
+
+  - pattern: "(?i)return on investments?\\s*\\(ROI\\)\\s*(of|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.90
+    fixed_values: {"metric_name": "investment_roi", "unit": "%"}
+
+  - pattern: "(?i)(loss ratio|expense ratio)\\s*(of|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.90
+    fixed_values: {"unit": "%"}
+
+  - pattern: "(?i)(underwriting profit|profit)\\s*(of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "FIN_METRIC"
+    attribute: "metric_value"
+    confidence: 0.85
+    fixed_values: {"metric_name": "underwriting_profit"}
+
+  # Capital and Solvency Patterns
+  - pattern: "(?i)(SST|Solvency\\s*II)\\s*ratio\\s*(as of\\s*[0-9A-Za-z\\s,]+)?\\s*(of|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "CAPITAL"
+    attribute: "ratio_value"
+    confidence: 0.95
+
+  - pattern: "(?i)(regulatory capital|economic capital)\\s*(of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "CAPITAL"
+    attribute: "ratio_value"
+    confidence: 0.90
+
+  - pattern: "(?i)(dividend (per share|pps)|ordinary dividend)\\s*(of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.]+)"
+    entity_type: "SHR_RETURN"
+    attribute: "amount_per_share"
+    confidence: 0.90
+    fixed_values: {"action_type": "dividend"}
+
+  - pattern: "(?i)(share buyback|repurchase)\\s*(of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "SHR_RETURN"
+    attribute: "total_amount"
+    confidence: 0.85
+    fixed_values: {"action_type": "buyback"}
+
+  # Claims and Reserving Patterns
+  - pattern: "(?i)claims paid (?:in|of)\\s*(20\\d{2})?\\s*(amounted to|total(?:ling)?|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "CLAIMS_STATS"
+    attribute: "claims_paid_amount"
+    confidence: 0.90
+
+  - pattern: "(?i)reserve (?:strengthening|additions?)\\s*(?:of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "CLAIMS_STATS"
+    attribute: "reserve_change_amount"
+    confidence: 0.85
+
+  - pattern: "(?i)(catastrophe losses|cat losses)\\s*(?:of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "CLAIMS_STATS"
+    attribute: "cat_losses_amount"
+    confidence: 0.90
+
+  - pattern: "(?i)(claims frequency|frequency)\\s*(?:of|:)\\s*([0-9.]+)\\s*(?:per|/)\\s*([0-9]+)"
+    entity_type: "CLAIMS_STATS"
+    attribute: "claims_frequency"
+    confidence: 0.85
+
+  # Guidance and Targets Patterns
+  - pattern: "(?i)(aims|expects|targets)\\s*(?:a\\s*)?(net income|ROE|combined ratio)\\s*(?:of|below|greater than|>|<|≤|≥)\\s*([0-9.]+)\\s*(%|bn|billion)?\\s*(?:for|in)\\s*(20\\d{2})"
+    entity_type: "GUIDANCE"
+    attribute: "target_value"
+    confidence: 0.85
+
+  - pattern: "(?i)(outlook|guidance)\\s*(?:for|in)\\s*(20\\d{2})\\s*(?:is|shows|indicates)\\s*(?:a\\s*)?(positive|negative|stable|improving|declining)"
+    entity_type: "GUIDANCE"
+    attribute: "confidence_language"
+    confidence: 0.80
+
+  # ESG and Sustainability Patterns
+  - pattern: "(?i)(GHG|carbon) (?:intensity|emissions) (?:reduction|reduced) (?:of|by)\\s*([0-9.]+)\\s*%\\s*(?:vs\\.?|relative to)?\\s*(?:the )?(?:20\\d{2})?\\s*(?:baseline|base year)?"
+    entity_type: "ESG_METRIC"
+    attribute: "value"
+    confidence: 0.85
+    fixed_values: {"topic": "climate", "unit": "%"}
+
+  - pattern: "(?i)(net-zero|carbon neutral)\\s*(?:by|target)\\s*(20\\d{2})"
+    entity_type: "ESG_METRIC"
+    attribute: "target_year"
+    confidence: 0.90
+    fixed_values: {"topic": "climate", "metric": "net_zero_target"}
+
+  - pattern: "(?i)(Scope [123]|scope [123])\\s*(?:emissions|emissions?)\\s*(?:of|:)\\s*([0-9.,]+)\\s*(?:tonnes?|t|CO2)"
+    entity_type: "ESG_METRIC"
+    attribute: "value"
+    confidence: 0.85
+    fixed_values: {"topic": "climate"}
+
+  # Investment Patterns
+  - pattern: "(?i)reinvestment yield\\s*(of|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "INVEST_PORTFOLIO"
+    attribute: "reinvestment_yield"
+    confidence: 0.90
+
+  - pattern: "(?i)(investment income|investment return)\\s*(of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "INVEST_PORTFOLIO"
+    attribute: "roi"
+    confidence: 0.85
+
+  - pattern: "(?i)(asset mix|portfolio allocation)\\s*(?:of|:)\\s*([0-9.]+)\\s*%\\s*(?:government|gov|corporate|corp|equity|alternatives)"
+    entity_type: "INVEST_PORTFOLIO"
+    attribute: "asset_mix"
+    confidence: 0.80
+
+  # Risk Disclosure Patterns
+  - pattern: "(?i)(natural catastrophe|natcat|catastrophe) losses?\\s*(?:of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "RISK_DISCLOSURE"
+    attribute: "impact_metric"
+    confidence: 0.85
+    fixed_values: {"risk_type": "natcat"}
+
+  - pattern: "(?i)(market risk|credit risk|operational risk|cyber risk)\\s*(?:exposure|impact)\\s*(?:of|:)\\s*([0-9.,]+)\\s*(?:%|USD|CHF|EUR|GBP)?"
+    entity_type: "RISK_DISCLOSURE"
+    attribute: "impact_metric"
+    confidence: 0.80
+
+  - pattern: "(?i)(stress test|scenario analysis)\\s*(?:shows|indicates|results in)\\s*(?:a\\s*)?(?:loss|impact)\\s*(?:of|:)\\s*([0-9.,]+)\\s*(?:%|USD|CHF|EUR|GBP)?"
+    entity_type: "RISK_DISCLOSURE"
+    attribute: "impact_metric"
+    confidence: 0.85
+
+  # Regulatory Patterns
+  - pattern: "(?i)(IFRS|US GAAP|SST|Solvency II)\\s*(?:compliance|framework|standard)"
+    entity_type: "REGULATORY"
+    attribute: "requirement_name"
+    confidence: 0.90
+
+  - pattern: "(?i)(regulatory capital requirement|minimum capital)\\s*(?:of|:)\\s*([0-9.]+)\\s*%"
+    entity_type: "REGULATORY"
+    attribute: "requirement_name"
+    confidence: 0.85
+
+  # Audit Patterns
+  - pattern: "(?i)(unqualified|qualified|adverse|disclaimer)\\s*(?:audit\\s*)?opinion"
+    entity_type: "AUDIT"
+    attribute: "opinion_type"
+    confidence: 0.95
+
+  - pattern: "(?i)(going concern|material weakness|significant deficiency)\\s*(?:identified|noted|reported)"
+    entity_type: "AUDIT"
+    attribute: "opinion_type"
+    confidence: 0.90
+
+  # Business Unit Patterns
+  - pattern: "(?i)(Property & Casualty|P&C|Life & Health|L&H|General Insurance|Life Insurance|Health Insurance|Reinsurance|Commercial Lines|Personal Lines|Specialty Lines)\\s*(?:Reinsurance|Re)?\\s*(?:revenue|performance)\\s*(?:of|:)\\s*(USD|CHF|EUR|GBP)?\\s*([0-9.,]+)\\s*(billion|bn|million|m)?"
+    entity_type: "BUSINESS_UNIT"
+    attribute: "name"
+    confidence: 0.90
+
+  - pattern: "(?i)(segment|business unit|division|line of business|operating segment)\\s*(?:performance|results)\\s*(?:for|in)\\s*(20\\d{2})"
+    entity_type: "BUSINESS_UNIT"
+    attribute: "performance_rating"
+    confidence: 0.80
+
+  # Executive and Leadership Patterns
+  - pattern: "(?i)(CEO|CFO|Chairman|President)\\s*([A-Za-z\\s]+)\\s*(?:stated|commented|remarked|said)"
+    entity_type: "EXECUTIVE"
+    attribute: "name"
+    confidence: 0.90
+
+  - pattern: "(?i)(leadership|management|board)\\s*(?:change|appointment|transition)\\s*(?:of|:)\\s*([A-Za-z\\s]+)"
+    entity_type: "EXECUTIVE"
+    attribute: "name"
+    confidence: 0.85
+
+key_terms:
+  - "IFRS"
+  - "ROE"
+  - "combined ratio"
+  - "SST ratio"
+  - "insurance revenue"
+  - "reserve strengthening"
+  - "claims paid"
+  - "catastrophe losses"
+  - "reinvestment yield"
+  - "investment income"
+  - "guidance"
+  - "target"
+  - "dividend per share"
+  - "capital repatriation"
+  - "buyback"
+  - "solvency"
+  - "liquidity"
+  - "cost discipline"
+  - "underwriting excellence"
+  - "ESG"
+  - "climate transition plan"
+  - "net-zero"
+  - "Scope 1/2/3"
+  - "gross written premium"
+  - "net written premium"
+  - "loss ratio"
+  - "expense ratio"
+  - "combined ratio"
+  - "underwriting profit"
+  - "investment return"
+  - "regulatory capital"
+  - "economic capital"
+  - "stress testing"
+  - "risk appetite"
+  - "risk tolerance"
+  - "operational risk"
+  - "credit risk"
+  - "market risk"
+  - "liquidity risk"
+  - "cyber risk"
+  - "climate risk"
+  - "sustainability reporting"
+  - "TCFD"
+  - "SASB"
+  - "GRI"
+  - "audit opinion"
+  - "going concern"
+  - "material weakness"
+  - "internal controls"
+  - "compliance"
+  - "regulatory reporting"
+  - "disclosure requirements"
+  - "stakeholder communication"
+  - "investor relations"
+  - "analyst coverage"
+  - "credit rating"
+  - "rating agency"
+  - "Moody's"
+  - "S&P"
+  - "Fitch"
+  - "AM Best"
+
+# Business Patterns: Define domain-specific workflows and patterns that guide entity extraction and question generation
+# Purpose: Represent real-world business processes
+# Usage: Help AI understand domain workflows, generate business-process questions, and identify related entities when patterns are detected
+# Note: Pattern names use PascalCase, triggers use snake_case
+business_patterns:
+  - name: "key_financials_block"
+    description: "Summary financial metrics and KPIs section"
+    triggers:
+      - "Key financials"
+      - "Financial overview"
+      - "Highlights"
+      - "Executive summary"
+      - "Financial highlights"
+    entities_involved:
+      - "FIN_METRIC"
+      - "CAPITAL"
+      - "SHR_RETURN"
+    tags:
+      - "financial_reporting"
+      - "kpi_summary"
+      - "financial_overview"
+      - "executive_summary"
+    decision_points:
+      - "performance_vs_targets"
+      - "yoy_comparison"
+      - "peer_comparison"
+    business_context:
+      normalize_currency: true
+      detect_period_from_header: true
+      flag_exceptional_items: true
+
+  - name: "business_unit_performance"
+    description: "Segment-wise performance analysis"
+    triggers:
+      - "Property & Casualty"
+      - "Life & Health"
+      - "General Insurance"
+      - "Commercial Lines"
+      - "Personal Lines"
+      - "Reinsurance"
+      - "Segment results"
+      - "Business unit performance"
+      - "Operating segments"
+      - "Line of business"
+      - "Division performance"
+    entities_involved:
+      - "BUSINESS_UNIT"
+      - "FIN_METRIC"
+      - "CLAIMS_STATS"
+    tags:
+      - "segment_analysis"
+      - "business_unit_performance"
+      - "lob_performance"
+      - "segment_reporting"
+    decision_points:
+      - "segment_profitability"
+      - "growth_strategy"
+      - "resource_allocation"
+    business_context:
+      compute_combined_ratio_drivers: true
+      attach_reserve_movements: true
+      analyze_segment_trends: true
+
+  - name: "risk_capital_management"
+    description: "Risk management and capital adequacy section"
+    triggers:
+      - "Risk and capital management"
+      - "Solvency"
+      - "Liquidity management"
+      - "Risk management"
+      - "Capital adequacy"
+    entities_involved:
+      - "CAPITAL"
+      - "RISK_DISCLOSURE"
+      - "REGULATORY"
+    tags:
+      - "risk_management"
+      - "capital_adequacy"
+      - "solvency"
+      - "regulatory_compliance"
+    decision_points:
+      - "capital_allocation"
+      - "risk_appetite"
+      - "stress_testing"
+    business_context:
+      map_ratio_to_framework: true
+      capture_target_range: true
+      assess_capital_efficiency: true
+
+  - name: "shareholder_return_section"
+    description: "Dividend and capital return policy"
+    triggers:
+      - "Shareholder return"
+      - "Dividend"
+      - "Capital repatriation"
+      - "Capital return"
+      - "Dividend policy"
+    entities_involved:
+      - "SHR_RETURN"
+      - "FIN_METRIC"
+      - "GUIDANCE"
+    tags:
+      - "shareholder_return"
+      - "dividend_policy"
+      - "capital_management"
+      - "investor_relations"
+    decision_points:
+      - "dividend_sustainability"
+      - "buyback_opportunity"
+      - "capital_retention"
+    business_context:
+      compute_yoy_change: true
+      assess_payout_ratio: true
+      evaluate_capital_needs: true
+
+  - name: "guidance_outlook"
+    description: "Forward-looking statements and targets"
+    triggers:
+      - "Outlook"
+      - "Targets"
+      - "2025 financial targets"
+      - "guidance"
+      - "forecast"
+      - "forward-looking"
+    entities_involved:
+      - "GUIDANCE"
+      - "FIN_METRIC"
+      - "EXECUTIVE"
+    tags:
+      - "guidance"
+      - "outlook"
+      - "forecasting"
+      - "forward_looking_statements"
+    decision_points:
+      - "target_achievement_probability"
+      - "market_expectations"
+      - "risk_factors"
+    business_context:
+      flag_forward_looking: true
+      capture_confidence_language: true
+      assess_assumptions: true
+
+  - name: "esg_sustainability"
+    description: "ESG metrics and sustainability reporting"
+    triggers:
+      - "ESG"
+      - "Sustainability"
+      - "Climate"
+      - "Environmental"
+      - "Social responsibility"
+      - "Governance"
+    entities_involved:
+      - "ESG_METRIC"
+      - "RISK_DISCLOSURE"
+      - "GUIDANCE"
+    tags:
+      - "esg"
+      - "sustainability"
+      - "climate_reporting"
+      - "environmental_social_governance"
+    decision_points:
+      - "esg_target_progress"
+      - "climate_risk_assessment"
+      - "stakeholder_impact"
+    business_context:
+      track_esg_progress: true
+      assess_climate_risks: true
+      evaluate_sustainability_goals: true
+
+  - name: "investment_strategy"
+    description: "Investment portfolio and asset management"
+    triggers:
+      - "Investment"
+      - "Asset management"
+      - "Portfolio"
+      - "Investment strategy"
+      - "Investment income"
+    entities_involved:
+      - "INVEST_PORTFOLIO"
+      - "FIN_METRIC"
+      - "RISK_DISCLOSURE"
+    decision_points:
+      - "asset_allocation"
+      - "yield_optimization"
+      - "risk_return_tradeoff"
+    business_context:
+      analyze_asset_mix: true
+      assess_yield_trends: true
+      evaluate_credit_quality: true
+
+  - name: "regulatory_compliance"
+    description: "Regulatory requirements and compliance status"
+    triggers:
+      - "Regulatory"
+      - "Compliance"
+      - "Audit"
+      - "Internal controls"
+      - "Regulatory reporting"
+    entities_involved:
+      - "REGULATORY"
+      - "AUDIT"
+      - "COMPANY"
+    decision_points:
+      - "compliance_status"
+      - "audit_findings"
+      - "regulatory_changes"
+    business_context:
+      track_compliance_status: true
+      assess_audit_opinion: true
+      monitor_regulatory_changes: true
+
+# Question Templates: Reusable question templates organized by category for AI question generation
+# Purpose: Guide the AI to generate domain-specific questions using structured templates
+# Usage: LLM uses these templates to generate questions tailored to the document content
+question_templates:
+  entity_extraction:
+    - template: "What is the {entity_type} mentioned in this report?"
+      entity_types: ["company_name", "business_unit", "executive_name", "auditor_name"]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "string"
+    
+    - template: "What are all the {entity_type}s reported in this document?"
+      entity_types: ["financial_metrics", "business_units", "risk_factors", "esg_metrics"]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "list"
+    
+    - template: "What is the {attribute} of the {entity_type}?"
+      entity_types: ["company", "business_unit", "financial_metric", "capital_position"]
+      attributes: ["status", "value", "performance", "rating"]
+      priority: "medium"
+      expected_answer_type: "string"
+
+  relationship_extraction:
+    - template: "What is the relationship between {entity1} and {entity2}?"
+      entity_pairs: [["company", "business_unit"], ["company", "auditor"], ["executive", "guidance"]]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "relationship"
+    
+    - template: "How does {entity1} relate to {entity2} in this report?"
+      entity_pairs: [["financial_metrics", "business_units"], ["risk_factors", "capital_position"], ["esg_metrics", "sustainability_goals"]]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "relationship"
+
+  business_process:
+    - template: "What is the current status of this {process_type}?"
+      process_types: ["compliance", "audit", "esg_progress", "capital_management"]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "string"
+    
+    - template: "What are the targets for this {process_type}?"
+      process_types: ["financial_performance", "sustainability", "risk_management", "capital_return"]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "list"
+    
+    - template: "What are the key risks associated with this {process_type}?"
+      process_types: ["investment_strategy", "underwriting", "capital_management", "regulatory_compliance"]
+      attributes: []
+      priority: "critical"
+      expected_answer_type: "list"
+
+  financial_extraction:
+    - template: "What are the financial metrics mentioned in this report?"
+      attributes: []
+      priority: "high"
+      expected_answer_type: "list"
+    
+    - template: "What is the {financial_type} amount?"
+      financial_types: ["net_income", "revenue", "dividend", "investment_return", "claims_paid"]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "number"
+    
+    - template: "What are the year-over-year changes in {metric_type}?"
+      metric_types: ["financial_metrics", "claims_experience", "investment_performance", "esg_metrics"]
+      attributes: []
+      priority: "high"
+      expected_answer_type: "list"
+
+# Multi-Hop Questions: Complex reasoning questions that require connecting multiple entities or relationships
+# Purpose: Generate questions that require multi-step reasoning
+# Usage: Enable deeper understanding of entity relationships and business logic through causal, hypothetical, or relational reasoning
+multihop_questions:
+  - template: "If {condition1}, then what are the implications for {entity}?"
+    examples:
+      - "If the combined ratio increases, then what are the implications for the company's profitability?"
+      - "If interest rates rise, then what are the implications for the investment portfolio?"
+      - "If regulatory requirements change, then what are the implications for capital management?"
+    priority: "high"
+    reasoning_type: "causal"
+
+  - template: "What would happen if {scenario} in this {context}?"
+    examples:
+      - "What would happen if catastrophe losses increase in this insurance portfolio?"
+      - "What would happen if ESG targets are not met in this sustainability plan?"
+      - "What would happen if regulatory capital requirements increase in this solvency framework?"
+    priority: "high"
+    reasoning_type: "hypothetical"
+
+  - template: "How does {entity1} relate to {entity2} through {intermediary}?"
+    examples:
+      - "How does the company relate to shareholders through dividend policy?"
+      - "How does risk management relate to capital position through stress testing?"
+      - "How does ESG performance relate to investment strategy through climate risk?"
+    priority: "medium"
+    reasoning_type: "relational"
+
+# Reasoning Templates: Step-by-step reasoning processes for domain-specific logic
+# Purpose: Guide structured Chain of Thought (COT) reasoning for complex entity extraction and validation
+# Usage: Used during entity extraction to enforce systematic reasoning steps (ANALYZE → CLASSIFY → VALIDATE → ENRICH → CONNECT)
+# Structure: Ordered steps with triggers that indicate when this reasoning should be applied
+reasoning_templates:
+  - name: "financial_performance_analysis"
+    steps:
+      1: "extract_key_financial_metrics"
+      2: "calculate_year_over_year_changes"
+      3: "assess_performance_vs_targets"
+      4: "identify_performance_drivers"
+      5: "evaluate_business_unit_contributions"
+      6: "generate_performance_insights"
+    triggers: ["ROE", "combined ratio", "net income", "revenue"]
+    confidence_threshold: 0.8
+
+  - name: "capital_adequacy_assessment"
+    steps:
+      1: "extract_regulatory_capital_ratios"
+      2: "assess_capital_buffer_levels"
+      3: "evaluate_stress_test_results"
+      4: "analyze_capital_efficiency"
+      5: "assess_capital_allocation_strategy"
+      6: "generate_capital_recommendations"
+    triggers: ["SST ratio", "Solvency II", "regulatory capital", "stress test"]
+    confidence_threshold: 0.85
+
+  - name: "risk_exposure_evaluation"
+    steps:
+      1: "identify_risk_categories"
+      2: "quantify_risk_exposures"
+      3: "assess_risk_mitigation_status"
+      4: "evaluate_stress_scenario_impacts"
+      5: "analyze_risk_trends"
+      6: "generate_risk_management_insights"
+    triggers: ["catastrophe", "market risk", "credit risk", "operational risk"]
+    confidence_threshold: 0.8
+
+  - name: "esg_progress_tracking"
+    steps:
+      1: "extract_esg_metrics_and_targets"
+      2: "assess_progress_vs_baseline"
+      3: "evaluate_target_achievement_probability"
+      4: "identify_esg_risks_and_opportunities"
+      5: "analyze_stakeholder_impact"
+      6: "generate_sustainability_recommendations"
+    triggers: ["carbon", "ESG", "sustainability", "climate"]
+    confidence_threshold: 0.75
+
+  - name: "claims_experience_analysis"
+    steps:
+      1: "extract_claims_paid_and_frequency"
+      2: "analyze_reserve_movements"
+      3: "assess_catastrophe_loss_impact"
+      4: "evaluate_claims_trends"
+      5: "identify_underwriting_quality_indicators"
+      6: "generate_claims_management_insights"
+    triggers: ["claims paid", "reserve", "catastrophe", "loss ratio"]
+    confidence_threshold: 0.8
+
+  - name: "investment_strategy_evaluation"
+    steps:
+      1: "extract_investment_performance_metrics"
+      2: "analyze_asset_allocation_changes"
+      3: "assess_yield_trends_and_expectations"
+      4: "evaluate_credit_quality_and_duration"
+      5: "analyze_esg_integration_in_investments"
+      6: "generate_investment_recommendations"
+    triggers: ["investment", "portfolio", "yield", "asset mix"]
+    confidence_threshold: 0.8
+
+# Business Rules: Define domain-specific business rules, constraints, and workflow logic
+# Purpose: Specify valid transitions, required documents, deadline calculations, and other domain constraints
+# Usage: Validate extracted entities/relationships, guide AI extraction, and ensure knowledge graph follows domain rules
+business_rules:
+  - name: "financial_reporting_workflow"
+    description: "Standard financial reporting process"
+    rules:
+      - "quarterly_reporting -> annual_reporting"
+      - "draft_financials -> audit_review -> final_financials"
+      - "internal_review -> external_audit -> board_approval -> publication"
+      - "regulatory_filing -> public_disclosure -> analyst_presentation"
+    rule_type: "workflow"
+
+  - name: "capital_management_rules"
+    description: "Capital allocation and management rules"
+    rules:
+      - "regulatory_capital >= minimum_requirement"
+      - "economic_capital >= risk_capital"
+      - "excess_capital -> dividend_or_buyback_consideration"
+      - "capital_ratio < target_range -> capital_raising_consideration"
+      - "stress_test_failure -> immediate_capital_action"
+    rule_type: "validation"
+
+  - name: "risk_management_framework"
+    description: "Risk management and monitoring rules"
+    rules:
+      - "risk_appetite >= actual_risk_exposure"
+      - "stress_test_results -> capital_planning"
+      - "risk_limit_breach -> immediate_review"
+      - "catastrophe_loss > threshold -> reinsurance_review"
+      - "credit_downgrade -> investment_review"
+    rule_type: "decision"
+
+  - name: "esg_target_tracking"
+    description: "ESG target setting and monitoring"
+    rules:
+      - "baseline_year -> target_year -> progress_measurement"
+      - "esg_target_miss -> mitigation_plan -> revised_targets"
+      - "climate_risk -> scenario_analysis -> adaptation_strategy"
+      - "carbon_intensity_increase -> offset_requirement"
+      - "esg_rating_downgrade -> improvement_plan"
+    rule_type: "workflow"
+
+  - name: "claims_reserving_rules"
+    description: "Claims reserving and management rules"
+    rules:
+      - "reserve_adequacy < 100% -> strengthening_required"
+      - "catastrophe_loss > budget -> reserve_adjustment"
+      - "claims_frequency_increase -> underwriting_review"
+      - "severity_trend_upward -> pricing_adjustment"
+      - "reserve_release -> profit_recognition"
+    rule_type: "validation"
+
+  - name: "investment_management_rules"
+    description: "Investment portfolio management rules"
+    rules:
+      - "credit_rating_downgrade -> sell_requirement"
+      - "duration_mismatch -> rebalancing_required"
+      - "concentration_limit_breach -> diversification_action"
+      - "yield_target_miss -> strategy_review"
+      - "esg_integration -> sustainable_investment_target"
+    rule_type: "decision"
+
+  - name: "business_unit_performance_rules"
+    description: "Business unit performance management"
+    rules:
+      - "combined_ratio > 100% -> underwriting_action"
+      - "growth_rate < target -> strategy_review"
+      - "profitability_decline -> cost_reduction"
+      - "market_share_loss -> competitive_response"
+      - "segment_loss -> exit_consideration"
+    rule_type: "workflow"
+
+  - name: "regulatory_compliance_rules"
+    description: "Regulatory compliance and reporting rules"
+    rules:
+      - "regulatory_filing_deadline -> submission_required"
+      - "compliance_violation -> remediation_plan"
+      - "audit_finding -> corrective_action"
+      - "regulatory_change -> policy_update"
+      - "supervisory_action -> response_required"
+    rule_type: "validation"
+
+# Validation Rules: Define validation constraints for extracted entities
+# Purpose: Ensure data quality by validating entity attributes meet domain requirements
+# Structure: required_fields maps entity types to lists of mandatory attributes
+# Usage: Used during QA validation to ensure answers meet domain requirements, and during entity extraction to validate attributes
+validation_rules:
+  required_fields:
+    company: ["legal_name", "report_period", "accounting_framework"]
+    financial_metric: ["metric_name", "metric_value", "period"]
+    capital: ["ratio_name", "ratio_value", "as_of_date"]
+    guidance: ["target_name", "target_value", "target_period"]
+    esg_metric: ["topic", "metric", "value", "period"]
+
+entity_aliases:
+  BUSINESS_UNIT: ["segment", "division", "unit", "line_of_business"]
+  FIN_METRIC: ["kpi", "key_figure", "financial_indicator"]
+  CAPITAL: ["solvency", "capital_position", "regulatory_capital"]
+  SHR_RETURN: ["shareholder_return", "capital_repatriation", "dividend_policy"]
+  GUIDANCE: ["outlook", "targets", "forecast", "forward_looking"]
+  ESG_METRIC: ["sustainability", "climate_target", "environmental_metric"]
+  RISK_DISCLOSURE: ["risk_management", "risk_factor", "risk_exposure"]
+  CLAIMS_STATS: ["claims_experience", "loss_ratio", "reserving"]
+  INVEST_PORTFOLIO: ["investment_strategy", "asset_management", "portfolio_performance"]
+  REGULATORY: ["compliance", "regulatory_standard", "legal_requirement"]
+  AUDIT: ["audit_report", "auditor_opinion", "financial_audit"]
+
+business_context:
+  currencies: ["USD", "CHF", "EUR", "GBP", "INR", "JPY", "CAD", "AUD"]
+  unit_scales: ["%", "m", "bn", "thousand", "k"]
+  frameworks: ["IFRS", "US GAAP", "SST", "Solvency II", "Basel III"]
+  reporting_periods: ["Q1", "Q2", "Q3", "Q4", "FY", "H1", "H2"]
+  confidentiality_levels: ["public", "confidential", "restricted"]
+  urgency_levels: ["routine", "urgent", "critical"]
+  document_types: ["annual_report", "quarterly_report", "presentation", "press_release", "regulatory_filing"]
+  stakeholder_types: ["investors", "regulators", "analysts", "customers", "employees", "suppliers"]

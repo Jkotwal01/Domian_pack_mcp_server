@@ -1,0 +1,406 @@
+name: "Healthcare"
+description: "Healthcare and medical domain"
+version: "2.0.0"
+
+# Entities: Define the types of entities that should be extracted from documents (e.g., PATIENT, DIAGNOSIS, TREATMENT)
+# Purpose: These entity types guide AI question generation and become node labels in the knowledge graph
+# Usage: Used during question generation to create entity-focused questions, and during processing to classify extracted entities
+entities:
+  - name: "Patient"
+    type: "PATIENT"
+    attributes:
+      - "patient_id"
+      - "age"
+      - "gender"
+      - "medical_history"
+      - "allergies"
+      - "emergency_contact"
+      - "insurance_info"
+      - "address"
+      - "phone"
+      - "email"
+      - "date_of_birth"
+      - "blood_type"
+      - "height"
+      - "weight"
+      - "marital_status"
+    synonyms:
+      - "individual"
+      - "person"
+      - "client"
+      - "resident"
+      - "inpatient"
+      - "outpatient"
+  
+  - name: "Diagnosis"
+    type: "DIAGNOSIS"
+    attributes:
+      - "code"
+      - "description"
+      - "severity"
+      - "date"
+      - "physician"
+      - "confidence_level"
+      - "differential_diagnosis"
+      - "prognosis"
+      - "treatment_plan"
+      - "follow_up_required"
+    synonyms:
+      - "condition"
+      - "disease"
+      - "disorder"
+      - "illness"
+      - "syndrome"
+      - "pathology"
+      - "medical_condition"
+  
+  - name: "Treatment"
+    type: "TREATMENT"
+    attributes:
+      - "type"
+      - "dosage"
+      - "frequency"
+      - "duration"
+      - "side_effects"
+      - "start_date"
+      - "end_date"
+      - "effectiveness"
+      - "cost"
+      - "insurance_coverage"
+      - "contraindications"
+    synonyms:
+      - "therapy"
+      - "medication"
+      - "procedure"
+      - "intervention"
+      - "prescription"
+      - "drug"
+      - "surgery"
+      - "rehabilitation"
+      - "counseling"
+  
+  - name: "Physician"
+    type: "PHYSICIAN"
+    attributes:
+      - "name"
+      - "specialty"
+      - "license"
+      - "hospital"
+      - "contact"
+      - "education"
+      - "experience_years"
+      - "board_certification"
+      - "availability"
+      - "rating"
+      - "patient_load"
+    synonyms:
+      - "doctor"
+      - "medical_professional"
+      - "clinician"
+      - "practitioner"
+      - "specialist"
+      - "surgeon"
+      - "internist"
+      - "pediatrician"
+      - "cardiologist"
+      - "neurologist"
+  
+  - name: "Medical Facility"
+    type: "MEDICAL_FACILITY"
+    attributes:
+      - "name"
+      - "type"
+      - "address"
+      - "phone"
+      - "capacity"
+      - "services"
+      - "accreditation"
+      - "rating"
+      - "insurance_accepted"
+      - "emergency_services"
+    synonyms:
+      - "hospital"
+      - "clinic"
+      - "medical_center"
+      - "healthcare_facility"
+      - "urgent_care"
+      - "emergency_room"
+      - "surgery_center"
+  
+  - name: "Medical Device"
+    type: "MEDICAL_DEVICE"
+    attributes:
+      - "device_name"
+      - "model"
+      - "serial_number"
+      - "manufacturer"
+      - "purpose"
+      - "calibration_date"
+      - "maintenance_schedule"
+      - "safety_status"
+      - "cost"
+    synonyms:
+      - "equipment"
+      - "instrument"
+      - "machine"
+      - "monitor"
+      - "ventilator"
+      - "defibrillator"
+      - "scanner"
+      - "analyzer"
+
+# Relationships: Define the types of relationships between entities
+# Purpose: Guide relationship extraction and create edges in the knowledge graph
+# Usage: Used during question generation for relationship-focused questions, and during processing to identify connections between entities
+relationships:
+  - from: "PATIENT"
+    to: "DIAGNOSIS"
+    type: "HAS_DIAGNOSIS"
+    properties:
+      - "date"
+      - "confirmed"
+      - "severity"
+      - "chronic"
+  
+  - from: "PATIENT"
+    to: "TREATMENT"
+    type: "RECEIVES_TREATMENT"
+    properties:
+      - "start_date"
+      - "end_date"
+      - "response"
+      - "adherence"
+      - "side_effects"
+  
+  - from: "PHYSICIAN"
+    to: "PATIENT"
+    type: "TREATS"
+    properties:
+      - "date"
+      - "role"
+      - "consultation_type"
+      - "duration"
+  
+  - from: "PHYSICIAN"
+    to: "DIAGNOSIS"
+    type: "MAKES_DIAGNOSIS"
+    properties:
+      - "confidence"
+      - "date"
+      - "method"
+      - "tests_ordered"
+  
+  - from: "PATIENT"
+    to: "MEDICAL_FACILITY"
+    type: "VISITS"
+    properties:
+      - "visit_date"
+      - "purpose"
+      - "duration"
+      - "department"
+  
+  - from: "TREATMENT"
+    to: "MEDICAL_DEVICE"
+    type: "USES"
+    properties:
+      - "usage_frequency"
+      - "effectiveness"
+      - "maintenance_required"
+
+# Extraction Patterns: Regex patterns for extracting entities from structured text
+# Purpose: Pre-extract entities using regex before LLM processing (faster, more accurate for structured data)
+# Usage: Can extract entities before LLM processing, or validate/supplement LLM-extracted entities
+# Format: Regex with named groups that map to entity types and attributes
+extraction_patterns:
+  - pattern: "Patient ID: (?P<patient_id>[A-Z0-9-]+)"
+    entity_type: "PATIENT"
+    attribute: "patient_id"
+  
+  - pattern: "Diagnosis: (?P<diagnosis>[A-Z0-9.]+) - (?P<description>[^\\n]+)"
+    entity_type: "DIAGNOSIS"
+    attribute: "code"
+  
+  - pattern: "Dr\\. (?P<name>[A-Za-z\\s]+), (?P<specialty>[A-Za-z\\s]+)"
+    entity_type: "PHYSICIAN"
+    attribute: "name"
+  
+  - pattern: "Medication: (?P<medication>[A-Za-z\\s]+), (?P<dosage>[0-9.]+mg)"
+    entity_type: "TREATMENT"
+    attribute: "type"
+  
+  - pattern: "Hospital: (?P<hospital_name>[A-Za-z\\s]+)"
+    entity_type: "MEDICAL_FACILITY"
+    attribute: "name"
+
+key_terms:
+  - "diagnosis"
+  - "treatment"
+  - "medication"
+  - "symptoms"
+  - "therapy"
+  - "prognosis"
+  - "prescription"
+  - "dosage"
+  - "allergy"
+  - "contraindication"
+  - "vital_signs"
+  - "blood_pressure"
+  - "heart_rate"
+  - "temperature"
+  - "respiratory_rate"
+  - "oxygen_saturation"
+  - "pain_level"
+  - "infection"
+  - "inflammation"
+  - "chronic"
+  - "acute"
+  - "benign"
+  - "malignant"
+  - "metastasis"
+  - "remission"
+  - "relapse"
+  - "complication"
+  - "side_effect"
+  - "adverse_reaction"
+  - "contraindication"
+  - "interaction"
+  - "dosage"
+  - "administration"
+  - "route"
+  - "frequency"
+  - "duration"
+  - "monitoring"
+  - "follow_up"
+  - "discharge"
+  - "admission"
+  - "emergency"
+  - "urgent"
+  - "elective"
+  - "surgery"
+  - "procedure"
+  - "anesthesia"
+  - "recovery"
+  - "rehabilitation"
+  - "physical_therapy"
+  - "occupational_therapy"
+  - "speech_therapy"
+  - "counseling"
+  - "mental_health"
+  - "psychiatry"
+  - "psychology"
+
+# Business Patterns: Define domain-specific workflows and patterns that guide entity extraction and question generation
+# Purpose: Represent real-world business processes
+# Usage: Help AI understand domain workflows, generate business-process questions, and identify related entities when patterns are detected
+# Note: Pattern names use PascalCase, triggers use snake_case
+business_patterns:
+  - name: "patient_care_flow"
+    triggers: ["patient", "treatment", "diagnosis", "medication"]
+    entities: ["PATIENT", "TREATMENT", "DIAGNOSIS", "PHYSICIAN"]
+    tags: ["care_flow", "medical_process"]
+    business_context:
+      risk_level: "medium"
+      compliance_required: true
+      privacy_sensitive: true
+
+  - name: "medical_device_usage"
+    triggers: ["device", "equipment", "monitor", "ventilator"]
+    entities: ["MEDICAL_DEVICE", "TREATMENT", "PHYSICIAN"]
+    tags: ["device_management", "safety"]
+    business_context:
+      risk_level: "high"
+      compliance_required: true
+      maintenance_required: true
+
+  - name: "diagnostic_process"
+    triggers: ["diagnosis", "test", "lab", "imaging"]
+    entities: ["DIAGNOSIS", "PHYSICIAN", "MEDICAL_FACILITY"]
+    tags: ["diagnostic", "clinical"]
+    business_context:
+      risk_level: "medium"
+      compliance_required: true
+      accuracy_critical: true
+
+# Reasoning Templates: Step-by-step reasoning processes for domain-specific logic
+# Purpose: Guide structured Chain of Thought (COT) reasoning for complex entity extraction and validation
+# Usage: Used during entity extraction to enforce systematic reasoning steps (ANALYZE → CLASSIFY → VALIDATE → ENRICH → CONNECT)
+# Structure: Ordered steps with triggers that indicate when this reasoning should be applied
+reasoning_templates:
+  - name: "patient_safety_assessment"
+    steps:
+      1: "identify_patient_identifiers"
+      2: "check_allergy_contraindications"
+      3: "assess_treatment_compatibility"
+      4: "evaluate_risk_factors"
+      5: "generate_safety_recommendations"
+    triggers: ["allergy", "contraindication", "side_effect", "adverse"]
+    confidence_threshold: 0.8
+
+  - name: "treatment_effectiveness_analysis"
+    steps:
+      1: "extract_treatment_details"
+      2: "identify_patient_response"
+      3: "compare_with_expected_outcomes"
+      4: "assess_dosage_appropriateness"
+      5: "recommend_adjustments"
+    triggers: ["effectiveness", "response", "outcome", "dosage"]
+    confidence_threshold: 0.7
+
+  - name: "compliance_check"
+    steps:
+      1: "identify_regulatory_requirements"
+      2: "check_documentation_completeness"
+      3: "verify_provider_credentials"
+      4: "assess_privacy_protections"
+      5: "flag_compliance_gaps"
+    triggers: ["hipaa", "compliance", "privacy", "regulation"]
+    confidence_threshold: 0.9
+
+# Enhanced relationship types for business context
+relationship_types:
+  - type: "HAS_DIAGNOSIS"
+    business_context:
+      risk_assessment: "required"
+      follow_up_required: true
+      documentation_critical: true
+  
+  - type: "RECEIVES_TREATMENT"
+    business_context:
+      monitoring_required: true
+      effectiveness_tracking: true
+      side_effect_reporting: true
+  
+  - type: "TREATS"
+    business_context:
+      credential_verification: true
+      liability_consideration: true
+      care_coordination: true
+
+# Entity aliases for canonicalization
+entity_aliases:
+  PATIENT:
+    - "individual"
+    - "person"
+    - "client"
+    - "resident"
+    - "inpatient"
+    - "outpatient"
+  
+  PHYSICIAN:
+    - "doctor"
+    - "medical_professional"
+    - "clinician"
+    - "practitioner"
+    - "specialist"
+    - "surgeon"
+    - "internist"
+    - "pediatrician"
+    - "cardiologist"
+    - "neurologist"
+
+# Business context attributes
+business_context:
+  risk_levels: ["low", "medium", "high", "critical"]
+  compliance_frameworks: ["HIPAA", "FDA", "CMS", "Joint Commission"]
+  privacy_levels: ["public", "internal", "confidential", "restricted"]
+  urgency_levels: ["routine", "urgent", "emergency", "stat"]
