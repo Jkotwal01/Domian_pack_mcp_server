@@ -1,20 +1,22 @@
 import React from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
 export default function Sidebar({
   isOpen,
   toggleSidebar,
-  activeView,
-  onShowDashboard,
-  onShowChat,
 }) {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const handleLogout = () => {
     if (confirm("Are you sure you want to log out?")) {
       logout();
     }
   };
+
+  const isDashboard = location.pathname === '/dashboard' || location.pathname === '/';
 
   return (
     <>
@@ -53,9 +55,9 @@ export default function Sidebar({
           {/* Navigation */}
           <nav className="flex-1 px-3 space-y-1">
             <button
-              onClick={onShowDashboard}
+              onClick={() => navigate('/dashboard')}
               className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
-                activeView === 'dashboard' 
+                isDashboard
                   ? 'bg-slate-50 text-indigo-600 font-medium' 
                   : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
               }`}
@@ -97,3 +99,4 @@ export default function Sidebar({
     </>
   );
 }
+

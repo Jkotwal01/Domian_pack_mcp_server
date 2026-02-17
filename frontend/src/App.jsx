@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import Dashboard from './pages/Dashboard';
@@ -14,13 +14,11 @@ import { useChatSessions } from './hooks/useChatSessions';
 import { listVersions, rollbackVersion, deleteVersion, getDownloadUrl } from './services/api';
 
 function AppContent() {
+  const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeView, setActiveView] = useState('dashboard'); // 'dashboard', 'config', 'chat'
-  
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const [versions, setVersions] = useState([]);
   const [currentVersion, setCurrentVersion] = useState(null);
-  const [configSession, setConfigSession] = useState(null);
-  const [isChatOpen, setIsChatOpen] = useState(false);
 
   const {
     sessions,
@@ -81,42 +79,12 @@ function AppContent() {
     window.open(url, '_blank');
   };
 
-  const handleShowDashboard = () => {
-    setActiveView('dashboard');
-    setIsChatOpen(false);
-  };
-
-  const handleShowChat = () => {
-    setIsChatOpen(true);
-  };
-
-  const handleSelectDomain = (session) => {
-    setConfigSession(session);
-    setActiveView('config');
-    setIsChatOpen(false);
-  };
-
-  const handleCreateDomain = (newDomain) => {
-    const session = {
-      id: newDomain.id,
-      name: newDomain.name,
-      description: newDomain.description,
-      version: newDomain.version,
-      isTemplate: true,
-      stats: { entities: 0, relations: 0 }
-    };
-    setConfigSession(session);
-    setActiveView('config');
-  };
-
-  const handleProceedToEnhancement = () => {
-    if (!configSession) return;
-    
-    let existingSession = sessions.find(s => s.mcpSessionId === configSession.session_id);
+  const handleProceedToEnhancement = (domainId, domainName, sessionId) => {
+    let existingSession = sessions.find(s => s.mcpSessionId === sessionId);
     
     if (!existingSession) {
       addSession({
-        title: configSession.domain_name,
+        title: domainName,
       });
     } else {
       switchSession(existingSession.id);
@@ -147,53 +115,55 @@ function AppContent() {
       <Sidebar 
         isOpen={sidebarOpen} 
         toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-        activeView={activeView}
-        onShowDashboard={handleShowDashboard}
-        onShowChat={handleShowChat}
       />
       
       <main className={`flex-1 flex flex-col h-full relative transition-all duration-300 ease-in-out bg-white overflow-y-auto`}>
-        {activeView === 'config' && (
-          <div className="flex h-full w-full overflow-hidden">
-            <div className={`flex-1 overflow-hidden transition-all duration-300 ${isChatOpen ? 'w-1/2' : 'w-full'}`}>
-              <ConfigView 
-                session={configSession} 
-                onProceed={handleProceedToEnhancement} 
+        <Routes>
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          
+          <Route 
+            path="/dashboard" 
+            element={
+              <Dashboard 
                 sidebarOpen={sidebarOpen}
                 toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-                isChatOpen={isChatOpen}
-                onToggleChat={() => setIsChatOpen(!isChatOpen)}
-                onBack={handleShowDashboard}
               />
-            </div>
-            {isChatOpen && (
-              <div className="w-1/2 border-l border-slate-200 animate-slideInRight h-full overflow-hidden">
-                <ChatArea 
-                  messages={messages} 
-                  isTyping={isTyping}
-                  uploadingFiles={uploadingFiles}
-                  onSendMessage={sendMessage} 
-                  onConfirmIntent={handleConfirmIntent}
-                  messagesEndRef={messagesEndRef}
-                  sidebarOpen={false}
-                  toggleSidebar={() => {}} 
-                  isEnhancementView={true}
-                  configSession={configSession}
-                  onClose={() => setIsChatOpen(false)}
-                />
-              </div>
-            )}
-          </div>
-        )}
-        
-        {activeView === 'dashboard' && (
-          <Dashboard 
-            onSelectDomain={handleSelectDomain} 
-            onCreateDomain={handleCreateDomain}
-            sidebarOpen={sidebarOpen}
-            toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+            } 
           />
-        )}
+          
+          <Route 
+            path="/configview/:domainId" 
+            element={
+              <div className="flex h-full w-full overflow-hidden">
+                <div className={`flex-1 overflow-hidden transition-all duration-300 ${isChatOpen ? 'w-1/2' : 'w-full'}`}>
+                  <ConfigView 
+                    onProceed={handleProceedToEnhancement} 
+                    sidebarOpen={sidebarOpen}
+                    toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+                    isChatOpen={isChatOpen}
+                    onToggleChat={() => setIsChatOpen(!isChatOpen)}
+                  />
+                </div>
+                {isChatOpen && (
+                  <div className="w-1/2 border-l border-slate-200 animate-slideInRight h-full overflow-hidden">
+                    <ChatArea 
+                      messages={messages} 
+                      isTyping={isTyping}
+                      uploadingFiles={uploadingFiles}
+                      onSendMessage={sendMessage} 
+                      onConfirmIntent={handleConfirmIntent}
+                      messagesEndRef={messagesEndRef}
+                      sidebarOpen={false}
+                      toggleSidebar={() => {}} 
+                      isEnhancementView={true}
+                      onClose={() => setIsChatOpen(false)}
+                    />
+                  </div>
+                )}
+              </div>
+            } 
+          />
+        </Routes>
       </main>
     </div>
   );

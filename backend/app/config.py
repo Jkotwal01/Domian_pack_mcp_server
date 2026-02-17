@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     
     # OpenAI
     OPENAI_API_KEY: str
+
+    # groq
+    GROQ_API_KEY: str
     
     # App
     DEBUG: bool = False

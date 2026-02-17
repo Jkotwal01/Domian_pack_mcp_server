@@ -1,0 +1,829 @@
+name: "Legal"
+description: "Legal and compliance domain"
+version: "3.0.0"
+
+entities:
+  - name: "Case"
+    type: "CASE"
+    description: "Legal case or proceeding"
+    attributes:
+      - name: "case_number"
+        description: "The case identifier as mentioned in document (e.g., 'SPECIAL LEAVE PETITION NO. 63 OF 2025', 'ITA 5463-Mum-2024')"
+        examples:
+          - "SPECIAL LEAVE PETITION NO. 63 OF 2025"
+          - "ITA 5463-Mum-2024"
+
+      - name: "title"
+        description: "Case title or name as mentioned in document"
+        examples:
+          - "PCIT vs Jupiter Capital"
+          - "Dinesh Rohira vs ITO"
+
+      - name: "status"
+        description: "Current status of the case"
+        examples:
+          - "pending"
+          - "decided"
+          - "appealed"
+          - "dismissed"
+
+      - name: "case_type"
+        description: "Type of case"
+        examples:
+          - "civil"
+          - "criminal"
+          - "tax appeal"
+          - "writ petition"
+
+      - name: "outcome"
+        description: "Case outcome or decision"
+        examples:
+          - "allowed"
+          - "dismissed"
+          - "remanded"
+
+      - name: "jurisdiction"
+        description: "Jurisdiction information (text description)"
+        examples:
+          - "Karnataka"
+          - "Mumbai"
+          - "Delhi"
+
+      - name: "description"
+        description: "Short phrase or sentence explaining what this case is about in THIS document context"
+        examples:
+          - "appeal regarding taxability of capital gain on share transfer"
+          - "special leave petition against ITAT order"
+
+    synonyms:
+      - "matter"
+      - "litigation"
+      - "proceeding"
+      - "action"
+      - "lawsuit"
+      - "dispute"
+      - "claim"
+      - "complaint"
+      - "petition"
+      - "appeal"
+      - "writ"
+      - "suit"
+
+  - name: "Client"
+    type: "CLIENT"
+    description: "Party involved in legal matter (person or company)"
+    attributes:
+      - name: "name"
+        description: "Full name of the client/party as mentioned in document"
+        examples:
+          - "JUPITER CAPITAL PVT. LTD."
+          - "Dinesh Rohira"
+          - "Mrs. Gulbanu Shaikh"
+
+      - name: "type"
+        description: "Type of client entity"
+        examples:
+          - "individual"
+          - "company"
+          - "HUF"
+          - "partnership"
+
+      - name: "role"
+        description: "Role of the client in the case"
+        examples:
+          - "appellant"
+          - "respondent"
+          - "petitioner"
+          - "assessee"
+
+      - name: "legal_entity_type"
+        description: "Legal entity type if company"
+        examples:
+          - "PVT. LTD."
+          - "LTD."
+          - "INC."
+          - "LLC"
+
+      - name: "contact_info"
+        description: "Contact details if explicitly mentioned in document"
+        examples:
+          - "Phone: 1234567890"
+          - "Email: contact@example.com"
+
+      - name: "description"
+        description: "Short phrase or sentence describing who this client is and their role in THIS document context"
+        examples:
+          - "appellant company engaged in share investment business"
+          - "respondent assessee who filed the appeal"
+
+    synonyms:
+      - "customer"
+      - "party"
+      - "entity"
+      - "plaintiff"
+      - "defendant"
+      - "respondent"
+      - "petitioner"
+      - "appellant"
+      - "claimant"
+
+  - name: "Numeric Value"
+    type: "NUMERIC_VALUE"
+    description: "Numeric values mentioned in the document (amounts, counts, percentages, ratios, etc.)"
+    attributes:
+      - name: "value"
+        description: "The numeric value as mentioned in document (with units/symbols if present)"
+        examples:
+          - "Rs. 3,17,83,474/-"
+          - "500"
+          - "50 per share"
+          - "25%"
+          - "1:2 ratio"
+
+      - name: "description"
+        description: "Short phrase or sentence explaining what this numeric value refers to in THIS document context"
+        examples:
+          - "amount directed to be paid to the assessee"
+          - "addition made by Assessing Officer"
+          - "fair market value used for computation"
+          - "percentage of tax liability"
+
+    synonyms:
+      - "amount"
+      - "payment"
+      - "financial_amount"
+      - "monetary_value"
+      - "numeric_value"
+      - "number"
+      - "figure"
+      - "count"
+      - "percentage"
+      - "ratio"
+
+  - name: "Court"
+    type: "COURT"
+    description: "Court or tribunal hearing the case"
+    attributes:
+      - name: "name"
+        description: "Court name as mentioned in document"
+        examples:
+          - "High Court of Karnataka"
+          - "ITAT"
+          - "CIT(A)"
+          - "Supreme Court"
+
+      - name: "jurisdiction"
+        description: "Jurisdiction type"
+        examples:
+          - "state"
+          - "national"
+          - "tax"
+          - "appellate"
+
+      - name: "level"
+        description: "Court level"
+        examples:
+          - "High Court"
+          - "Supreme Court"
+          - "Tribunal"
+          - "Appellate Authority"
+
+      - name: "description"
+        description: "Short phrase or sentence describing this court's role or involvement in THIS document context"
+        examples:
+          - "court that heard the appeal and passed the order"
+          - "tribunal that reversed the CIT(A) order"
+
+    synonyms:
+      - "tribunal"
+      - "forum"
+      - "venue"
+      - "judicial_body"
+
+  - name: "Section"
+    type: "SECTION"
+    description: "Legal section or statute reference"
+    attributes:
+      - name: "section_number"
+        description: "Section number as mentioned in document"
+        examples:
+          - "45"
+          - "2(47)"
+          - "66"
+          - "54F"
+
+      - name: "act_name"
+        description: "Act name when mentioned"
+        examples:
+          - "Income Tax Act, 1961"
+          - "Companies Act, 2013"
+
+      - name: "description"
+        description: "Short phrase or sentence explaining why this section is mentioned and how it applies in THIS document context"
+        examples:
+          - "cited to support exemption claim under section 54F"
+          - "defines transfer of capital asset for tax purposes"
+          - "prescribes procedure for filing appeal"
+
+    synonyms:
+      - "statute"
+      - "provision"
+      - "clause"
+      - "article"
+  - name: "Legal Issue"
+    type: "LEGAL_ISSUE"
+    description: "Legal issues, problems, or questions of law"
+    attributes:
+      - name: "description"
+        description: "Description of the legal issue as mentioned in document"
+        examples:
+          - "taxability of capital gain on share transfer"
+          - "exemption claim under section 54F"
+          - "validity of assessment order"
+
+      - name: "issue_type"
+        description: "Type of legal issue"
+        examples:
+          - "tax"
+          - "contract"
+          - "property"
+          - "procedural"
+
+  - name: "Attorney"
+    type: "ATTORNEY"
+    description: "Attorney, lawyer, or legal counsel mentioned in the document"
+    attributes:
+      - name: "name"
+        description: "Full name of the attorney as mentioned in document"
+        examples:
+          - "Mr. Ravi Kumar"
+          - "Adv. Priya Sharma"
+          - "Law Firm XYZ"
+
+      - name: "description"
+        description: "Short phrase or sentence describing this attorney's role or involvement in THIS document context"
+        examples:
+          - "attorney representing the appellant"
+          - "counsel who appeared for the respondent"
+          - "legal advisor for the assessee"
+
+    synonyms:
+      - "lawyer"
+      - "counsel"
+      - "legal_counsel"
+      - "advocate"
+      - "barrister"
+      - "solicitor"
+      - "legal_advisor"
+
+  - name: "PAN"
+    type: "PAN"
+    description: "Permanent Account Number (PAN) mentioned in the document"
+    attributes:
+      - name: "pan_number"
+        description: "PAN number as mentioned in document"
+        examples:
+          - "ABCDE1234F"
+          - "XYZAB5678C"
+
+      - name: "description"
+        description: "Short phrase or sentence describing whose PAN this is in THIS document context"
+        examples:
+          - "PAN of the appellant company"
+          - "PAN of the assessee"
+          - "PAN of the respondent"
+
+    synonyms:
+      - "permanent_account_number"
+      - "tax_id"
+      - "taxpayer_id"
+      - "income_tax_number"
+      - "pan_card"
+
+  - name: "Judge"
+    type: "JUDGE"
+    description: "Judge, justice, or tribunal member mentioned in the document"
+    attributes:
+      - name: "name"
+        description: "Full name of the judge/member as mentioned in document"
+        examples:
+          - "D. MANMOHAN"
+          - "J. SUDHAKAR REDDY"
+          - "P. MADHAVI DEVI"
+          - "Hon'ble Justice John Smith"
+
+      - name: "designation"
+        description: "Designation or role of the judge/member"
+        examples:
+          - "VICE PRESIDENT"
+          - "ACCOUNTANT MEMBER"
+          - "JUDICIAL MEMBER"
+          - "PRESIDENT"
+          - "Justice"
+          - "Judge"
+
+      - name: "court"
+        description: "Court or tribunal the judge belongs to (if mentioned)"
+        examples:
+          - "ITAT"
+          - "High Court of Karnataka"
+          - "Supreme Court"
+
+      - name: "description"
+        description: "Short phrase or sentence describing this judge's role or involvement in THIS document context"
+        examples:
+          - "judge who heard the case"
+          - "member who signed the order"
+          - "presiding judge"
+
+    synonyms:
+      - "judge"
+      - "justice"
+      - "member"
+      - "president"
+      - "vice_president"
+      - "judicial_member"
+      - "accountant_member"
+      - "tribunal_member"
+      - "bench_member"
+      - "magistrate"
+      - "arbitrator"
+
+relationships:
+  - name: "INVOLVED_IN"
+    from: "CLIENT"
+    to: "CASE"
+    description: "Client is involved in a case"
+    attributes:
+      - name: "role"
+        description: "Role of the client in the case"
+        examples:
+          - "appellant"
+          - "respondent"
+          - "petitioner"
+    synonyms:
+      - "party_to"
+      - "subject_of"
+      - "involved_in"
+      - "affected_by"
+
+  - name: "OWNS"
+    from: "CLIENT"
+    to: "PAN"
+    description: "Client owns a PAN (unambiguous ownership relationship)"
+    attributes:
+      - name: "context"
+        description: "Context or description of this ownership relationship"
+        examples:
+          - "PAN of the appellant"
+          - "PAN registered to the assessee"
+
+  - name: "REPRESENTS"
+    from: "ATTORNEY"
+    to: "CLIENT"
+    description: "Attorney represents a client (when Q&A confirms representation)"
+    attributes:
+      - name: "context"
+        description: "Context or description of this representation"
+        examples:
+          - "attorney representing the appellant"
+          - "counsel for the respondent"
+
+  - name: "APPEARS_IN"
+    from: "ATTORNEY"
+    to: "CASE"
+    description: "Attorney appears in a case (when Q&A confirms attorney involvement)"
+    attributes:
+      - name: "context"
+        description: "Context or description of this appearance"
+        examples:
+          - "attorney who appeared for the appellant"
+          - "counsel representing the case"
+
+  - name: "FILED_IN"
+    from: "CASE"
+    to: "COURT"
+    description: "Case was filed in a court"
+    attributes:
+      - name: "context"
+        description: "Context or description of this filing"
+        examples:
+          - "case filed in High Court"
+          - "appeal filed before ITAT"
+
+  - name: "HEARD_BY_COURT"
+    from: "CASE"
+    to: "COURT"
+    description: "Case was heard by a court"
+    attributes:
+      - name: "context"
+        description: "Context or description of this hearing"
+        examples:
+          - "case heard by Supreme Court"
+          - "appeal heard by ITAT"
+
+  - name: "DECIDED_BY_COURT"
+    from: "CASE"
+    to: "COURT"
+    description: "Case was decided by a court"
+    attributes:
+      - name: "context"
+        description: "Context or description of this decision"
+        examples:
+          - "case decided by High Court"
+          - "order passed by ITAT"
+
+  - name: "HEARD_BY_JUDGE"
+    from: "CASE"
+    to: "JUDGE"
+    description: "Case was heard by a judge"
+    attributes:
+      - name: "context"
+        description: "Context or description of this hearing"
+        examples:
+          - "judge who heard the case"
+
+  - name: "DECIDED_BY_JUDGE"
+    from: "CASE"
+    to: "JUDGE"
+    description: "Case was decided by a judge"
+    attributes:
+      - name: "context"
+        description: "Context or description of this decision"
+        examples:
+          - "judge who decided the case"
+
+  - name: "PRESIDES_OVER"
+    from: "JUDGE"
+    to: "COURT"
+    description: "Judge presides over a court"
+    attributes:
+      - name: "context"
+        description: "Context or description of this presiding relationship"
+        examples:
+          - "member of tribunal"
+
+  - name: "CASE_SECTION_ASSOCIATION"
+    from: "CASE"
+    to: "SECTION"
+    description: "Generic association between case and section"
+    attributes:
+      - name: "context"
+        description: "Section cited in case"
+
+  - name: "CASE_ISSUE_ASSOCIATION"
+    from: "CASE"
+    to: "LEGAL_ISSUE"
+    description: "Generic association between case and legal issue"
+    attributes:
+      - name: "context"
+        description: "Legal issue in case"
+
+  - name: "CASE_DATE_ASSOCIATION"
+    from: "CASE"
+    to: "DATE"
+    description: "Generic association between case and date"
+    attributes:
+      - name: "context"
+        description: "Date mentioned in case"
+
+# Extraction Patterns: Regex patterns for extracting entities from structured text
+# Purpose: Pre-extract entities using regex before LLM processing (faster, more accurate for structured data)
+# Usage: Applied to Q&A answers before LLM extraction (pattern-first approach)
+# Format: Regex with named groups that map to entity types and attributes
+
+extraction_patterns:
+  # Case number patterns
+  - pattern: "SPECIAL LEAVE PETITION NO\\.?\\s*(\\d+)\\s+OF\\s*(\\d{4})"
+    entity_type: "CASE"
+    attribute: "case_number"
+    extract_full_match: true
+    full_match_template: "SPECIAL LEAVE PETITION NO. {0} OF {1}"
+    confidence: 0.95
+
+  - pattern: "ITA[\\s-]*(\\d+)[\\s-]*(?:Mum|Del|Hyd|Ahd|Bang|Cal|Bom)[\\s-]*(\\d{4})"
+    entity_type: "CASE"
+    attribute: "case_number"
+    extract_full_match: true
+    full_match_template: "ITA {0}-{1}"
+    confidence: 0.95
+
+  # Numeric value patterns (amounts, percentages, ratios, counts)
+  - pattern: "Rs\\.?\\s*([0-9,]+(?:\\.[0-9]+)?)/-?"
+    entity_type: "NUMERIC_VALUE"
+    attribute: "value"
+    value_from_group: 1
+    value_template: "Rs. {0}/-"
+    confidence: 0.90
+
+  - pattern: "([0-9,]+(?:\\.[0-9]+)?)\\s*%"
+    entity_type: "NUMERIC_VALUE"
+    attribute: "value"
+    value_from_group: 1
+    value_template: "{0}%"
+    confidence: 0.85
+
+  - pattern: "([0-9,]+(?:\\.[0-9]+)?)\\s*:\\s*([0-9,]+(?:\\.[0-9]+)?)"
+    entity_type: "NUMERIC_VALUE"
+    attribute: "value"
+    extract_full_match: true
+    full_match_template: "{0}:{1}"
+    confidence: 0.80
+
+  # Section patterns
+  - pattern: "Section\\s+(\\d+(?:\\(\\d+\\))?)"
+    entity_type: "SECTION"
+    attribute: "section_number"
+    value_from_group: 1
+    confidence: 0.95
+
+  # Court patterns
+  - pattern: "High Court of ([A-Za-z]+)"
+    entity_type: "COURT"
+    attribute: "name"
+    extract_full_match: true
+    full_match_template: "High Court of {0}"
+    confidence: 0.90
+
+  - pattern: "\\bITAT\\b|Income Tax Appellate Tribunal"
+    entity_type: "COURT"
+    attribute: "name"
+    extract_full_match: true
+    full_match_template: "ITAT"
+    confidence: 0.95
+
+  - pattern: "CIT\\(A\\)|Commissioner of Income Tax"
+    entity_type: "COURT"
+    attribute: "name"
+    extract_full_match: true
+    full_match_template: "CIT(A)"
+    confidence: 0.90
+
+  # Judge patterns
+  - pattern: "BEFORE\\s+(?:SHRI|SMT\\.|MS\\.|MR\\.)\\s+([A-Z][A-Z\\.\\s]+?)(?:\\s*,\\s*(?:VICE\\s+PRESIDENT|ACCOUNTANT\\s+MEMBER|JUDICIAL\\s+MEMBER|PRESIDENT))"
+    entity_type: "JUDGE"
+    attribute: "name"
+    value_from_group: 1
+    confidence: 0.95
+
+  - pattern: "\\(([A-Z][A-Z\\.\\s]+?)\\)\\s+(?:VICE\\s+PRESIDENT|ACCOUNTANT\\s+MEMBER|JUDICIAL\\s+MEMBER|PRESIDENT)"
+    entity_type: "JUDGE"
+    attribute: "name"
+    value_from_group: 1
+    confidence: 0.95
+
+  - pattern: "(?:VICE\\s+PRESIDENT|ACCOUNTANT\\s+MEMBER|JUDICIAL\\s+MEMBER|PRESIDENT)\\s+(?:SHRI|SMT\\.|MS\\.|MR\\.)?\\s*([A-Z][A-Z\\.\\s]+)"
+    entity_type: "JUDGE"
+    attribute: "name"
+    value_from_group: 1
+    confidence: 0.90
+
+  # Date patterns
+  - pattern: "\\d{1,2}(?:st|nd|rd|th)?\\s+(January|February|March|April|May|June|July|August|September|October|November|December),?\\s+\\d{4}"
+    entity_type: "DATE"
+    attribute: "date"
+    extract_full_match: true
+    confidence: 0.90
+
+  # Company name patterns (for CLIENT)
+  - pattern: "([A-Z][A-Za-z0-9\\s&.,]+(?:PVT\\.?\\s+LTD\\.?|LTD\\.?|INC\\.?|LLC|CORP\\.?))"
+    entity_type: "CLIENT"
+    attribute: "name"
+    extract_full_match: true
+    confidence: 0.85
+
+key_terms:
+  - "litigation"
+  - "settlement"
+  - "compliance"
+  - "regulation"
+  - "liability"
+  - "damages"
+  - "jurisdiction"
+  - "precedent"
+  - "statute"
+  - "constitution"
+  - "contract"
+  - "agreement"
+  - "breach"
+  - "remedy"
+  - "injunction"
+  - "appeal"
+  - "verdict"
+  - "judgment"
+  - "execution"
+  - "enforcement"
+  - "tax"
+  - "assessment"
+  - "appellant"
+  - "respondent"
+  - "petitioner"
+  - "assessee"
+  - "tribunal"
+  - "commissioner"
+
+
+# Question Templates: Reusable question templates organized by category
+# Purpose: Provide basic guidance for LLM question generation
+# Usage: LLM uses these as examples but should analyze chunks and generate questions for ALL entities found
+# IMPORTANT: These are GUIDANCE only - LLM must discover what's actually in each chunk
+# question_templates:
+#   entity_extraction:
+#     - template: "What is the {attribute} of the {entity_type}?"
+#       entity_types: ["CASE", "CLIENT", "COURT", "SECTION", "DATE", "NUMERIC_VALUE", "ATTORNEY", "PAN", "JUDGE"]
+#       attributes: ["case_number", "name", "value", "section_number", "date", "pan_number", "designation"]
+#       priority: "high"
+#       expected_answer_type: "string"
+    
+#     - template: "Who is the {role} in this case?"
+#       entity_types: ["CLIENT"]
+#       attributes: ["name", "role"]
+#       priority: "high"
+#       expected_answer_type: "string"
+  
+#   relationship_extraction:
+#     # Explicit relationship questions for critical pairs (to ensure reliable extraction)
+#     - template: "Which court is this case filed in or heard by?"
+#       entity_pairs: [["CASE", "COURT"]]
+#       target_relationship: "FILED_IN|HEARD_BY|DECIDED_BY|CASE_COURT_ASSOCIATION"
+#       priority: "high"  
+#       expected_answer_type: "relationship"
+    
+#     - template: "What is the decision date, filing date, or order date of this case?"
+#       entity_pairs: [["CASE", "DATE"]]
+#       target_relationship: "DECIDED_ON|FILED_ON|ORDER_DATE|CASE_DATE_ASSOCIATION"
+#       priority: "high"
+#       expected_answer_type: "relationship"
+    
+#     - template: "What is the PAN of this client?"
+#       entity_pairs: [["CLIENT", "PAN"]]
+#       target_relationship: "OWNS"
+#       priority: "high"
+#       expected_answer_type: "relationship"
+    
+#     # Generic relationship questions
+#     - template: "What is the relationship between {entity1} and {entity2}?"
+#       entity_pairs: [["CLIENT", "CASE"], ["CASE", "SECTION"], ["CASE", "LEGAL_ISSUE"], ["ATTORNEY", "CLIENT"], ["ATTORNEY", "CASE"]]
+#       priority: "medium"
+#       expected_answer_type: "relationship"
+
+# ============================================================================
+# COMMENTED OUT SECTIONS - Not used in current phase
+# ============================================================================
+
+# # Legal Document entity - Not in Priority 1
+# - name: "Legal Document"
+#   type: "LEGAL_DOCUMENT"
+#   attributes:
+#     - "document_type"
+#     - "title"
+#     - "date"
+#     - "author"
+#     - "status"
+#   synonyms:
+#     - "contract"
+#     - "agreement"
+#     - "brief"
+#     - "motion"
+#     - "pleading"
+#     - "memorandum"
+#     - "opinion"
+#     - "order"
+#     - "judgment"
+#     - "decree"
+#     - "settlement"
+#     - "release"
+
+# # Attorney entity - Not in Priority 1
+# - name: "Attorney"
+#   type: "ATTORNEY"
+#   attributes:
+#     - "name"
+#     - "bar_number"
+#     - "specialization"
+#     - "firm"
+#     - "contact"
+#   synonyms:
+#     - "lawyer"
+#     - "counsel"
+#     - "legal_counsel"
+#     - "advocate"
+#     - "barrister"
+#     - "solicitor"
+#     - "legal_advisor"
+
+# # PAN entity - Not in Priority 1
+# - name: "PAN"
+#   type: "PAN"
+#   attributes:
+#     - "pan_number"
+#     - "holder_name"
+#     - "holder_type"
+#     - "status"
+#   synonyms:
+#     - "permanent_account_number"
+#     - "tax_id"
+#     - "taxpayer_id"
+#     - "income_tax_number"
+#     - "pan_card"
+
+# # Additional relationships - Will be added later
+# - name: "FILED_IN"
+#   from: "CASE"
+#   to: "COURT"
+#   attributes:
+#     - "filing_date"
+#     - "case_number"
+#     - "status"
+#   synonyms:
+#     - "pending_in"
+#     - "heard_by"
+#     - "decided_by"
+#     - "appealed_to"
+#
+# - name: "REPRESENTS"
+#   from: "ATTORNEY"
+#   to: "CLIENT"
+#   attributes:
+#     - "representation_type"
+#     - "start_date"
+#     - "end_date"
+#     - "scope"
+#     - "fees"
+#   synonyms:
+#     - "acts_for"
+#     - "counsels"
+#     - "advises"
+#     - "defends"
+#     - "prosecutes"
+
+# # Reasoning Templates - Not used in current phase
+# reasoning_templates:
+#   - name: "liability_assessment"
+#     steps:
+#       1: "identify_party_roles"
+#       2: "extract_key_obligations"
+#       3: "map_breaches_and_remedies"
+#       4: "assess_risk_factors"
+#       5: "generate_recommendation"
+#     triggers: ["liability", "breach", "damages"]
+#     confidence_threshold: 0.8
+
+# # Business Patterns - Not used in current phase
+# business_patterns:
+#   - name: "Litigation Process"
+#     description: "Standard litigation workflow"
+#     stages:
+#       - "case_initiation"
+#       - "pleadings"
+#       - "discovery"
+#       - "pre_trial"
+#       - "trial"
+#       - "judgment"
+#       - "appeal"
+#     triggers:
+#       - "legal_dispute"
+#       - "breach_of_contract"
+#       - "tort_claim"
+#       - "regulatory_violation"
+#     entities_involved:
+#       - "CLIENT"
+#       - "ATTORNEY"
+#       - "CASE"
+#       - "COURT"
+#       - "LEGAL_DOCUMENT"
+#     tags:
+#       - "litigation"
+#       - "dispute_resolution"
+#       - "court_proceedings"
+#       - "legal_action"
+
+# # Multi-Hop Questions - Not used in current phase
+# multihop_questions:
+#   - template: "If {condition1}, then what are the implications for {entity}?"
+#     examples:
+#       - "If the case is dismissed, then what are the implications for the client?"
+#       - "If the contract is breached, then what are the implications for the parties?"
+#     priority: "high"
+#     reasoning_type: "causal"
+
+# # Business Rules - Not used in current phase
+# business_rules:
+#   - name: "case_status_workflow"
+#     description: "Valid case status transitions"
+#     rules:
+#       - "filed -> active"
+#       - "active -> settled"
+#       - "active -> dismissed"
+#       - "active -> judgment"
+#       - "judgment -> appealed"
+#       - "appealed -> affirmed"
+#       - "appealed -> reversed"
+
+# # Validation Rules - Not used in current phase
+# validation_rules:
+#   required_fields:
+#     case: ["case_number", "filing_date", "court"]
+#     client: ["name", "contact_info"]
+#     attorney: ["name", "bar_number"]
+#     legal_document: ["document_type", "date", "author"]

@@ -4,8 +4,8 @@ import json
 import jsonpatch
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage
-from app.langgraph.state import DomainGraphState
-from app.langgraph.prompts import (
+from app.dp_chatbot_module.state import DomainGraphState
+from app.dp_chatbot_module.prompts import (
     INTENT_DETECTION_PROMPT,
     PATCH_GENERATION_PROMPT,
     CONFIRMATION_PROMPT,

@@ -1,7 +1,7 @@
 """Main LangGraph definition for domain configuration chatbot."""
 from langgraph.graph import StateGraph, END
-from app.langgraph.state import DomainGraphState
-from app.langgraph.nodes import (
+from app.dp_chatbot_module.state import DomainGraphState
+from app.dp_chatbot_module.nodes import (
     intent_detection_node,
     patch_generation_node,
     validation_node,

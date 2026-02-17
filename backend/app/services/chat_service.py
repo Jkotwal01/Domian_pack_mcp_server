@@ -9,8 +9,8 @@ from app.models.chat_message import ChatMessage, MessageRole
 from app.models.domain_config import DomainConfig
 from app.models.user import User
 from app.schemas.chat import ChatRequest, ChatResponse
-from app.langgraph.graph import domain_graph
-from app.langgraph.state import create_initial_state
+from app.dp_chatbot_module.graph import domain_graph
+from app.dp_chatbot_module.state import create_initial_state
 from app.services.domain_service import DomainService
 
 

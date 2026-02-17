@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { getDomainPackExport, syncDomainPack, deleteDomain, updateDomain } from '../services/api';
 import { mockDomainData } from '../utils/mockData';
 import { useAuth } from '../context/AuthContext';
@@ -58,8 +58,9 @@ const StepIndicator = ({ currentStep }) => {
   );
 };
 
-export default function ConfigView({ session, onProceed, toggleSidebar, isChatOpen, onToggleChat, onBack }) {
+export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onToggleChat }) {
   const navigate = useNavigate();
+  const { domainId } = useParams();
   const { logout } = useAuth();
   
   const [viewMode, setViewMode] = useState('visual'); // 'visual' | 'yaml'
@@ -67,6 +68,7 @@ export default function ConfigView({ session, onProceed, toggleSidebar, isChatOp
   const [yamlContent, setYamlContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [session, setSession] = useState(null);
 
   // Handle logout
   const handleLogout = () => {
@@ -102,7 +104,31 @@ export default function ConfigView({ session, onProceed, toggleSidebar, isChatOp
     handleDeleteTerm
   } = useDomainData();
 
-  const domainId = session?.id;
+  // Fetch domain session data
+  useEffect(() => {
+    const fetchDomainSession = async () => {
+      if (!domainId) return;
+      
+      setLoading(true);
+      try {
+        // Fetch the domain details to populate session data
+        const data = await getDomainPackExport(domainId);
+        setSession({
+          id: domainId,
+          name: data.name || 'Domain Configuration',
+          description: data.description || 'Configure your domain pack',
+          session_id: data.session_id,
+          domain_name: data.name
+        });
+      } catch (error) {
+        console.error('Error fetching domain session:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDomainSession();
+  }, [domainId]);
 
   // Fetch domain data
   useEffect(() => {
@@ -197,15 +223,21 @@ export default function ConfigView({ session, onProceed, toggleSidebar, isChatOp
     try {
       setLoading(true);
       await deleteDomain(domainId);
-      // Ensure we navigate back and reset view
-      if (onBack) {
-        onBack();
-      } else {
-        navigate('/');
-      }
+      // Navigate back to dashboard
+      navigate('/dashboard');
     } catch (err) {
       alert("Failed to delete domain: " + err.message);
       setLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    navigate('/dashboard');
+  };
+
+  const handleProceedToChat = () => {
+    if (session && onProceed) {
+      onProceed(domainId, session.domain_name || session.name, session.session_id);
     }
   };
 
@@ -216,14 +248,14 @@ export default function ConfigView({ session, onProceed, toggleSidebar, isChatOp
         title={session?.name || 'Domain Configuration'}
         subtitle={session?.description || 'Configure your domain pack'}
         showBackButton={true}
-        onBack={onBack}
+        onBack={handleBack}
         showSidebarToggle={true}
         toggleSidebar={toggleSidebar}
         rightActions={
           <>
             {!isChatOpen && (
               <button
-                onClick={onProceed}
+                onClick={handleProceedToChat}
                 className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-200 transition-all flex items-center space-x-2"
               >
                 <span className="text-lg">💬</span>

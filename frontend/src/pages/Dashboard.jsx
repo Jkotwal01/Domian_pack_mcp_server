@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { listDomains, createDomain, deleteDomain } from '../services/api';
 import { mockDomainPacks, createMockDomain } from '../utils/mockData';
 import Header from '../components/common/Header';
@@ -6,7 +7,8 @@ import Header from '../components/common/Header';
 // Set to true to use mock data instead of API calls
 const USE_MOCK_DATA = false;
 
-export default function Dashboard({ onSelectDomain, onCreateDomain, sidebarOpen, toggleSidebar }) {
+export default function Dashboard({ sidebarOpen, toggleSidebar }) {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
@@ -56,26 +58,14 @@ export default function Dashboard({ onSelectDomain, onCreateDomain, sidebarOpen,
       if (USE_MOCK_DATA) {
         // Create mock domain for UI testing
         const newDomain = createMockDomain(formData.name, formData.description, formData.version);
-        onCreateDomain({
-          id: newDomain.id,
-          name: newDomain.name,
-          description: formData.description,
-          version: formData.version,
-          isTemplate: true
-        });
+        navigate(`/configview/${newDomain.id}`);
       } else {
         const newDomain = await createDomain(formData.name, formData.description);
-        onCreateDomain({
-          id: newDomain.id,
-          name: newDomain.name,
-          description: formData.description,
-          version: formData.version,
-          isTemplate: true
-        });
+        navigate(`/configview/${newDomain.id}`);
       }
       setShowMetadataForm(false);
     } catch (err) {
-      alert("Failed to create domain: " + err.message);
+      alert("Failed to create domain: " + (err.message || err.toString() || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -95,7 +85,7 @@ export default function Dashboard({ onSelectDomain, onCreateDomain, sidebarOpen,
         setSelectedSession(null);
       }
     } catch (err) {
-      alert("Failed to delete domain: " + err.message);
+      alert("Failed to delete domain: " + (err.message || err.toString() || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -285,7 +275,7 @@ export default function Dashboard({ onSelectDomain, onCreateDomain, sidebarOpen,
           {selectedSession && (
             <div className="flex justify-center pt-8">
               <button 
-                onClick={() => onSelectDomain(selectedSession)}
+                onClick={() => navigate(`/configview/${selectedSession.id}`)}
                 className="px-12 py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-200 transition-all flex items-center space-x-3 group"
               >
                 <span>Continue Enhancing Existing</span>
