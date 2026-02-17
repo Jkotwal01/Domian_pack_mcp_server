@@ -11,6 +11,7 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false); // New state for creation loader
   const [selectedSession, setSelectedSession] = useState(null);
   const [showMetadataForm, setShowMetadataForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -54,7 +55,7 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
   const handleSaveMetadata = async (e) => {
     e.preventDefault();
     try {
-      setLoading(true);
+      setIsCreating(true);
       if (USE_MOCK_DATA) {
         // Create mock domain for UI testing
         const newDomain = createMockDomain(formData.name, formData.description, formData.version);
@@ -67,7 +68,7 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
     } catch (err) {
       alert("Failed to create domain: " + (err.message || err.toString() || 'Unknown error'));
     } finally {
-      setLoading(false);
+      setIsCreating(false);
     }
   };
 
@@ -91,17 +92,19 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
     }
   };
 
-  if (loading && !showMetadataForm && sessions.length > 0) {
+  if (isCreating || (loading && !showMetadataForm && sessions.length > 0)) {
     return (
       <div className="flex items-center justify-center h-screen bg-slate-50/50 backdrop-blur-sm fixed inset-0 z-[60]">
-        <div className="text-center space-y-6 animate-pulse">
+        <div className="text-center space-y-6 animate-fadeIn">
           <div className="relative">
-            <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-            <div className="absolute inset-0 flex items-center justify-center text-2xl">🤖</div>
+            <div className="w-24 h-24 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto shadow-xl shadow-blue-100"></div>
+            <div className="absolute inset-0 flex items-center justify-center text-4xl animate-bounce">🤖</div>
           </div>
-          <div className="space-y-2">
-            <h3 className="text-xl font-black text-slate-900">Generating Domain Intelligence</h3>
-            <p className="text-slate-500 font-medium">Applying AI to build your specialized configuration...</p>
+          <div className="space-y-3">
+            <h3 className="text-2xl font-black text-slate-900 tracking-tight">Generating Domain Intelligence</h3>
+            <p className="text-slate-500 font-semibold max-w-xs mx-auto leading-relaxed">
+              Our AI is crafting a specialized domain structure for <span className="text-blue-600">"{formData.name}"</span>...
+            </p>
           </div>
         </div>
       </div>

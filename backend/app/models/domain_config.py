@@ -37,6 +37,13 @@ class DomainConfig(Base):
     
     def update_counts(self):
         """Update cached counts from config_json."""
+        if self.config_json is None:
+            self.entity_count = 0
+            self.relationship_count = 0
+            self.extraction_pattern_count = 0
+            self.key_term_count = 0
+            return
+            
         self.entity_count = len(self.config_json.get("entities", []))
         self.relationship_count = len(self.config_json.get("relationships", []))
         self.extraction_pattern_count = len(self.config_json.get("extraction_patterns", []))

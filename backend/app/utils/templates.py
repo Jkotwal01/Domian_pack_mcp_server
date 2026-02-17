@@ -5,6 +5,7 @@ import json
 import os
 import asyncio
 import logging
+import traceback
 from dotenv import load_dotenv
 
 # Set up logging
@@ -53,10 +54,15 @@ DOMAIN_SCHEMA = {
                             "items": {
                                 "type": "object",
                                 "additionalProperties": False,
-                                "required": ["name", "description"],
+                                "required": ["name", "description", "examples"],
                                 "properties": {
                                     "name": {"type": "string"},
-                                    "description": {"type": "string"}
+                                    "description": {"type": "string"},
+                                    "examples": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "items": {"type": "string"}
+                                    }
                                 }
                             }
                         },
@@ -85,10 +91,14 @@ DOMAIN_SCHEMA = {
                             "items": {
                                 "type": "object",
                                 "additionalProperties": False,
-                                "required": ["name", "description"],
+                                "required": ["name", "description", "examples"],
                                 "properties": {
                                     "name": {"type": "string"},
-                                    "description": {"type": "string"}
+                                    "description": {"type": "string"},
+                                    "examples": {
+                                        "type": "array",
+                                        "items": {"type": "string"}
+                                    }
                                 }
                             }
                         }
@@ -136,12 +146,13 @@ async def generate_domain_template(domain_name: str, description: str) -> Dict[s
     llm_call_count += 1
     
     try:
-        response = await client.chat.completions.create(
-            model="gpt-4o-mini",  # Using gpt-4o-mini as gpt-4.1-mini is not a standard OpenAI model name
+        # Use beta.chat.completions.parse for structured output
+        response = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
             temperature=0.2,
             response_format={
                 "type": "json_schema",
-                "json_schema": DOMAIN_SCHEMA
+                "json_schema": DOMAIN_SCHEMA    
             },
             messages=[
                 {
@@ -160,6 +171,7 @@ async def generate_domain_template(domain_name: str, description: str) -> Dict[s
                         - At least 1 relationship between entities
                         - At least 2 regex-based extraction patterns
                         - At least 3 key terms
+                        - For each entity/relationship attribute, provide 2-3 realistic 'examples' as a list of strings
                         - Use realistic entity types (DOCUMENT, PERSON, ORGANIZATION, EVENT, LOCATION, SYSTEM)
                         - For entity 'name' use capitalized words (e.g., 'Numeric Value')
                         - For entity 'type' use uppercase with underscores (e.g., 'NUMERIC_VALUE')
@@ -167,12 +179,45 @@ async def generate_domain_template(domain_name: str, description: str) -> Dict[s
                 }
             ]
         )
-
-        # Access the structured output
+        # for Tokens Analysis
+        logger.info(f"Token Usage: Input={response.usage.prompt_tokens}, "
+            f"Output={response.usage.completion_tokens}, "
+            f"Total={response.usage.total_tokens}")
+        # Access the structured output via .parsed
         logger.info(f"OpenAI API - \"POST /v1/chat/completions HTTP/1.1\" 200 OK (Call count: {llm_call_count})")
-        return response.choices[0].message.parsed
+        
+        if response.choices[0].message.refusal:
+            logger.warning(f"Model refused to generate: {response.choices[0].message.refusal}")
+            return get_base_template(domain_name, description)
+            
+        parsed_data = response.choices[0].message.parsed
+        if parsed_data is None:
+            raw_content = response.choices[0].message.content
+            logger.warning("Model returned successful response but parsed data is None (validation failed)")
+            logger.warning(f"Raw content: {raw_content}")
+            
+            # Fallback to manual parsing if possible
+            if raw_content:
+                try:
+                    # Clean the content if it contains markdown markers
+                    cleaned_content = raw_content
+                    if "```json" in cleaned_content:
+                        cleaned_content = cleaned_content.split("```json")[1].split("```")[0].strip()
+                    elif "```" in cleaned_content:
+                        cleaned_content = cleaned_content.split("```")[1].split("```")[0].strip()
+                    
+                    parsed_data = json.loads(cleaned_content)
+                    logger.info("Successfully recovered data via manual JSON parsing")
+                    return parsed_data
+                except Exception as parse_err:
+                    logger.error(f"Manual parsing also failed: {str(parse_err)}")
+            
+            return get_base_template(domain_name, description)
+            
+        return parsed_data
     except Exception as e:
         logger.error(f"AI Template Generation Error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         logger.info(f"OpenAI API - \"POST /v1/chat/completions HTTP/1.1\" 500 Internal Server Error (Fallback to base template)")
         return get_base_template(domain_name, description)
 
@@ -190,14 +235,16 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
                 "name": "Document",
                 "type": "DOCUMENT",
                 "description": "A document or file in the domain",
-                "attributes": [
+                        "attributes": [
                     {
                         "name": "title",
-                        "description": "The title or name of the document"
+                        "description": "The title or name of the document",
+                        "examples": ["2023 Annual Report", "Technical Specification V1"]
                     },
                     {
                         "name": "date",
-                        "description": "The date associated with the document"
+                        "description": "The date associated with the document",
+                        "examples": ["2023-10-25", "January 15, 2024"]
                     }
                 ],
                 "synonyms": ["File", "Record"]
@@ -209,11 +256,13 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
                 "attributes": [
                     {
                         "name": "name",
-                        "description": "Full name of the person"
+                        "description": "Full name of the person",
+                        "examples": ["John Smith", "Alice Johnson"]
                     },
                     {
                         "name": "role",
-                        "description": "Role or position of the person"
+                        "description": "Role or position of the person",
+                        "examples": ["Manager", "Lead Engineer"]
                     }
                 ],
                 "synonyms": ["Individual", "User"]
@@ -225,11 +274,13 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
                 "attributes": [
                     {
                         "name": "name",
-                        "description": "Name of the organization"
+                        "description": "Name of the organization",
+                        "examples": ["Acme Corp", "HealthLink Systems"]
                     },
                     {
                         "name": "type",
-                        "description": "Type of organization"
+                        "description": "Type of organization",
+                        "examples": ["Private Company", "Non-profit Organization"]
                     }
                 ],
                 "synonyms": ["Company", "Institution"]
@@ -244,7 +295,8 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
                 "attributes": [
                     {
                         "name": "date",
-                        "description": "When the document was created"
+                        "description": "When the document was created",
+                        "examples": ["2023-11-01", "Yesterday"]
                     }
                 ]
             },
@@ -256,7 +308,8 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
                 "attributes": [
                     {
                         "name": "position",
-                        "description": "Job title or position"
+                        "description": "Job title or position",
+                        "examples": ["Software Engineer", "Project Coordinator"]
                     }
                 ]
             }
