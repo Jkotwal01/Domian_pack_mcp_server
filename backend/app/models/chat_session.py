@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 from sqlalchemy import Column, String, DateTime, ForeignKey, Index
-from sqlalchemy.dialects.postgresql import UUID, ENUM
+from sqlalchemy.dialects.postgresql import UUID, ENUM, JSONB
 from sqlalchemy.orm import relationship
 import enum
 from app.database import Base
@@ -29,6 +29,9 @@ class ChatSession(Base):
     )
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_activity_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    session_metadata = Column(JSONB, default=dict, nullable=False)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
+
+
     
     # Relationships
     user = relationship("User", back_populates="chat_sessions")

@@ -104,6 +104,20 @@ def start_chat_session(domain_id: str):
         st.error(f"Error starting session: {str(e)}")
         return None
 
+def get_chat_history(session_id: str):
+    """Fetch chat history from API."""
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/chat/sessions/{session_id}/messages",
+            headers=get_headers()
+        )
+        if response.status_code == 200:
+            return response.json()
+        return []
+    except Exception as e:
+        st.error(f"Error fetching history: {str(e)}")
+        return []
+
 def send_message(session_id: str, message: str):
     """Send message to chatbot."""
     try:
@@ -115,7 +129,12 @@ def send_message(session_id: str, message: str):
         if response.status_code == 200:
             return response.json()
         else:
-            st.error(f"Error: {response.json().get('detail', 'Unknown error')}")
+            # Check if it's a validation error
+            try:
+                detail = response.json().get('detail', 'Unknown error')
+            except:
+                detail = response.text
+            st.error(f"Error: {detail}")
             return None
     except Exception as e:
         st.error(f"Error sending message: {str(e)}")
@@ -123,13 +142,31 @@ def send_message(session_id: str, message: str):
 
 # Page configuration
 st.set_page_config(
-    page_title="Domain Pack Chatbot",
+    page_title="Domain Pack AI Chatbot",
     page_icon="🤖",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
+# Custom CSS for better aesthetics
+st.markdown("""
+<style>
+    .stChatMessage {
+        border-radius: 15px;
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+    .stChatMessageUser {
+        background-color: #f0f2f6;
+    }
+    .diff-added { color: #28a745; font-weight: bold; }
+    .diff-removed { color: #d73a49; font-weight: bold; }
+    .diff-modified { color: #005cc5; font-weight: bold; }
+</style>
+""", unsafe_allow_html=True)
+
 # Main UI
-st.title("🤖 Domain Pack Generator Chatbot")
+st.title("🤖 Domain Pack AI Assistant")
 
 # Sidebar for authentication and domain selection
 with st.sidebar:
@@ -141,7 +178,7 @@ with st.sidebar:
         with tab1:
             email = st.text_input("Email", key="login_email")
             password = st.text_input("Password", type="password", key="login_password")
-            if st.button("Login", key="login_btn"):
+            if st.button("Login", key="login_btn", use_container_width=True):
                 success, message = login(email, password)
                 if success:
                     st.success(message)
@@ -152,7 +189,7 @@ with st.sidebar:
         with tab2:
             email = st.text_input("Email", key="signup_email")
             password = st.text_input("Password", type="password", key="signup_password")
-            if st.button("Sign Up", key="signup_btn"):
+            if st.button("Sign Up", key="signup_btn", use_container_width=True):
                 success, message = signup(email, password)
                 if success:
                     st.success(message)
@@ -160,7 +197,7 @@ with st.sidebar:
                     st.error(message)
     else:
         st.success(f"Logged in as: {st.session_state.user_email}")
-        if st.button("Logout"):
+        if st.button("Logout", use_container_width=True):
             st.session_state.token = None
             st.session_state.user_email = None
             st.session_state.selected_domain = None
@@ -171,106 +208,141 @@ with st.sidebar:
         st.divider()
         st.header("📁 Domain Selection")
         
-        # Domain creation
-        with st.expander("➕ Create New Domain"):
-            domain_name = st.text_input("Domain Name")
-            domain_desc = st.text_area("Description")
-            if st.button("Create Domain"):
-                if domain_name:
-                    success, result = create_domain(domain_name, domain_desc)
-                    if success:
-                        st.success(f"Domain '{domain_name}' created!")
-                        st.rerun()
-                    else:
-                        st.error(f"Error: {result}")
-                else:
-                    st.warning("Please enter a domain name")
-        
         # Domain selection
         domains = get_domains()
         if domains:
-            domain_options = {d["name"]: d["id"] for d in domains}
+            domain_options = {d["name"]: d for d in domains}
             selected_name = st.selectbox(
                 "Select Domain",
                 options=list(domain_options.keys()),
                 index=0 if not st.session_state.selected_domain else 
-                      list(domain_options.values()).index(st.session_state.selected_domain) 
-                      if st.session_state.selected_domain in domain_options.values() else 0
+                      [d["id"] for d in domains].index(st.session_state.selected_domain) 
+                      if st.session_state.selected_domain in [d["id"] for d in domains] else 0
             )
             
-            if st.button("Start Chat"):
-                domain_id = domain_options[selected_name]
-                st.session_state.selected_domain = domain_id
-                session_id = start_chat_session(domain_id)
+            selected_domain_obj = domain_options[selected_name]
+            
+            if st.button("Open Chat Session", use_container_width=True):
+                st.session_state.selected_domain = selected_domain_obj["id"]
+                session_id = start_chat_session(selected_domain_obj["id"])
                 if session_id:
                     st.session_state.session_id = session_id
-                    st.session_state.messages = []
-                    st.success(f"Chat session started for '{selected_name}'!")
+                    # Load history
+                    history = get_chat_history(session_id)
+                    st.session_state.messages = [
+                        {"role": m["role"], "content": m["message"], "timestamp": m["created_at"]}
+                        for m in history
+                    ]
+                    st.success(f"Session active!")
                     st.rerun()
-        else:
-            st.info("No domains found. Create one to get started!")
+        
+        # Domain creation
+        with st.expander("➕ Create New Domain"):
+            domain_name = st.text_input("Domain Name")
+            domain_desc = st.text_area("Description")
+            if st.button("Create Domain", use_container_width=True):
+                if domain_name:
+                    success, result = create_domain(domain_name, domain_desc)
+                    if success:
+                        st.success(f"Created!")
+                        st.rerun()
+                    else:
+                        st.error(f"Error: {result}")
+                else:
+                    st.warning("Enter name")
 
-# Main chat area
-if st.session_state.token and st.session_state.session_id:
-    st.subheader("💬 Chat with AI Assistant")
-    
-    # Display chat messages
-    chat_container = st.container()
-    with chat_container:
-        for msg in st.session_state.messages:
-            with st.chat_message(msg["role"]):
-                st.write(msg["content"])
-                if "timestamp" in msg:
-                    st.caption(msg["timestamp"])
-    
-    # Chat input
-    if prompt := st.chat_input("Ask me to add entities, relationships, or query your domain..."):
-        # Add user message to chat
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        st.session_state.messages.append({
-            "role": "user",
-            "content": prompt,
-            "timestamp": timestamp
-        })
+# Layout with two columns: Chat and Live Config
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    if st.session_state.token and st.session_state.session_id:
+        st.subheader("💬 Conversation")
         
-        # Display user message
-        with st.chat_message("user"):
-            st.write(prompt)
-            st.caption(timestamp)
+        # Display chat messages
+        chat_container = st.container(height=500)
+        with chat_container:
+            for msg in st.session_state.messages:
+                with st.chat_message(msg["role"]):
+                    st.write(msg["content"])
         
-        # Send to API and get response
-        with st.spinner("Thinking..."):
-            response_data = send_message(st.session_state.session_id, prompt)
+        # Confirmation buttons if last message needs it
+        if st.session_state.messages and "apply?" in st.session_state.messages[-1]["content"].lower():
+            c1, c2, _ = st.columns([1, 1, 4])
+            with c1:
+                if st.button("✅ Yes, Apply", type="primary", use_container_width=True):
+                    with st.spinner("Applying..."):
+                        response = send_message(st.session_state.session_id, "yes")
+                        if response:
+                            st.session_state.messages.append({"role": "user", "content": "yes"})
+                            st.session_state.messages.append({"role": "assistant", "content": response["message"]})
+                            st.rerun()
+            with c2:
+                if st.button("❌ No, Cancel", type="secondary", use_container_width=True):
+                    with st.spinner("Cancelling..."):
+                        response = send_message(st.session_state.session_id, "no")
+                        if response:
+                            st.session_state.messages.append({"role": "user", "content": "no"})
+                            st.session_state.messages.append({"role": "assistant", "content": response["message"]})
+                            st.rerun()
+
+        # Chat input
+        if prompt := st.chat_input("E.g., 'Add email attribute to User entity' or 'Rename OWNS to OWNS_PRODUCT'"):
+            # Add user message to state
+            st.session_state.messages.append({"role": "user", "content": prompt})
             
-            if response_data:
-                assistant_message = response_data.get("response", "No response")
-                timestamp = datetime.now().strftime("%H:%M:%S")
+            # Send to API
+            with st.spinner("Thinking..."):
+                response_data = send_message(st.session_state.session_id, prompt)
                 
-                # Add assistant message to chat
-                st.session_state.messages.append({
-                    "role": "assistant",
-                    "content": assistant_message,
-                    "timestamp": timestamp
-                })
-                
-                # Display assistant message
-                with st.chat_message("assistant"):
-                    st.write(assistant_message)
-                    st.caption(timestamp)
+                if response_data:
+                    assistant_message = response_data["message"]
                     
-                    # Show reasoning if available
-                    if "reasoning" in response_data:
-                        with st.expander("🧠 Reasoning Steps"):
-                            for step in response_data["reasoning"]:
-                                st.write(f"• {step}")
-                
-                st.rerun()
+                    # If we have proposed changes, we can display them more prominently
+                    if response_data.get("proposed_changes"):
+                        st.session_state.last_proposed_patch = response_data["proposed_changes"]
+                    
+                    st.session_state.messages.append({
+                        "role": "assistant", 
+                        "content": assistant_message
+                    })
+                    st.rerun()
 
-elif st.session_state.token:
-    st.info("👈 Please select a domain and start a chat session from the sidebar")
-else:
-    st.info("👈 Please login or sign up to get started")
+    elif st.session_state.token:
+        st.info("👈 Select a domain and start a session to begin editing.")
+    else:
+        st.info("👈 Login to start using the Domain Pack AI Assistant.")
+
+with col2:
+    if st.session_state.token and st.session_state.selected_domain:
+        st.subheader("📊 Live Configuration")
+        
+        # Fetch latest domain data to show live config
+        domains = get_domains()
+        selected_domain = next((d for d in domains if d["id"] == st.session_state.selected_domain), None)
+        
+        if selected_domain:
+            # Stats
+            s1, s2 = st.columns(2)
+            s1.metric("Entities", selected_domain["entity_count"])
+            s2.metric("Relationships", selected_domain["relationship_count"])
+            
+            # Config preview
+            st.write("Current Schema:")
+            st.json(selected_domain["config_json"], expanded=1)
+            
+            # Operations Guide
+            with st.expander("📖 Supported Operations"):
+                st.markdown("""
+                - **Entities**: Add, Rename, Delete, Update Description
+                - **Attributes**: Add, Rename, Delete, Update Examples
+                - **Relationships**: Add, Rename, Delete, Update From/To
+                - **Metadata**: Update Domain Name, Version, Description
+                - **Extraction**: Patterns, Key Terms
+                - **Synonyms**: Add/Update/Delete
+                """)
+        else:
+            st.warning("Domain not found")
 
 # Footer
 st.divider()
-st.caption("Domain Pack Generator - Powered by FastAPI + LangGraph + GPT-3.5-Turbo")
+st.caption("🚀 Optimized with LangGraph | Cost: ~$0.0006/edit | Token Reduction: ~90%")

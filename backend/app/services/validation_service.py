@@ -1,6 +1,8 @@
 """Validation service for domain configuration."""
 from typing import Dict, Any, List, Set
 from fastapi import HTTPException, status
+from pydantic import ValidationError
+from app.schemas.domain import EntitySchema, RelationshipSchema, ExtractionPatternSchema
 import re
 
 
@@ -28,6 +30,86 @@ class ValidationService:
             config_json.get("extraction_patterns", []),
             config_json.get("entities", [])
         )
+    
+    @staticmethod
+    def validate_domain_config(config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Validate entire domain config using Pydantic schemas.
+        Returns validation result dict instead of raising exceptions.
+        
+        Args:
+            config: Domain configuration to validate
+            
+        Returns:
+            {"valid": bool, "errors": List[str]}
+        """
+        errors = []
+        
+        try:
+            # Validate basic structure
+            required_fields = ["name", "description", "version"]
+            for field in required_fields:
+                if field not in config:
+                    errors.append(f"Missing required field: {field}")
+            
+            # Validate entities
+            entity_names = set()
+            for entity in config.get("entities", []):
+                try:
+                    EntitySchema(**entity)
+                    
+                    # Check for duplicate names
+                    if entity["name"] in entity_names:
+                        errors.append(f"Duplicate entity name: {entity['name']}")
+                    entity_names.add(entity["name"])
+                    
+                except ValidationError as e:
+                    for err in e.errors():
+                        errors.append(f"Entity '{entity.get('name', 'unknown')}': {err['msg']}")
+            
+            # Validate relationships
+            for rel in config.get("relationships", []):
+                try:
+                    RelationshipSchema(**rel)
+                    
+                    # Check entity references
+                    if rel.get("from") not in entity_names:
+                        errors.append(
+                            f"Relationship '{rel.get('name', 'unknown')}' references "
+                            f"unknown entity '{rel.get('from')}'"
+                        )
+                    if rel.get("to") not in entity_names:
+                        errors.append(
+                            f"Relationship '{rel.get('name', 'unknown')}' references "
+                            f"unknown entity '{rel.get('to')}'"
+                        )
+                        
+                except ValidationError as e:
+                    for err in e.errors():
+                        errors.append(f"Relationship '{rel.get('name', 'unknown')}': {err['msg']}")
+            
+            # Validate extraction patterns
+            for pattern in config.get("extraction_patterns", []):
+                try:
+                    ExtractionPatternSchema(**pattern)
+                    
+                    # Validate regex
+                    try:
+                        re.compile(pattern.get("pattern", ""))
+                    except re.error as e:
+                        errors.append(f"Invalid regex pattern: {str(e)}")
+                        
+                except ValidationError as e:
+                    for err in e.errors():
+                        errors.append(f"Extraction pattern: {err['msg']}")
+            
+        except Exception as e:
+            errors.append(f"Unexpected validation error: {str(e)}")
+        
+        return {
+            "valid": len(errors) == 0,
+            "errors": errors
+        }
     
     @staticmethod
     def _validate_schema(config_json: Dict[str, Any]) -> None:

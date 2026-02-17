@@ -171,6 +171,49 @@ class ChatService:
             for msg in recent_messages[:-1]  # Exclude the message we just added
         ]
         
+        # Check if this is a confirmation response to a pending patch
+        if session.session_metadata and session.session_metadata.get("pending_patch"):
+            user_msg_lower = message_data.message.lower().strip()
+            
+            if user_msg_lower in ["yes", "confirm", "y", "apply", "ok"]:
+                # Apply pending patch
+                domain.config_json = session.session_metadata["pending_updated_config"]
+                domain.update_counts()
+                session.session_metadata = {}
+                db.commit()
+                
+                # Save confirmation response
+                assistant_message = ChatMessage(
+                    session_id=session_id,
+                    role=MessageRole.ASSISTANT,
+                    message="✅ Changes applied successfully!"
+                )
+                db.add(assistant_message)
+                db.commit()
+                
+                return ChatResponse(
+                    message="✅ Changes applied successfully!",
+                    updated_config=domain.config_json
+                )
+            
+            elif user_msg_lower in ["no", "cancel", "n", "reject", "abort"]:
+                # Rollback - clear pending patch
+                session.session_metadata = {}
+                db.commit()
+                
+                # Save cancellation response
+                assistant_message = ChatMessage(
+                    session_id=session_id,
+                    role=MessageRole.ASSISTANT,
+                    message="❌ Changes cancelled. What would you like to do instead?"
+                )
+                db.add(assistant_message)
+                db.commit()
+                
+                return ChatResponse(
+                    message="❌ Changes cancelled. What would you like to do instead?"
+                )
+        
         # Create initial state
         initial_state = create_initial_state(
             domain_config=domain.config_json,
@@ -189,10 +232,12 @@ class ChatService:
         )
         db.add(assistant_message)
         
-        # If changes were applied, update domain config
-        if final_state.get("updated_config"):
-            domain.config_json = final_state["updated_config"]
-            domain.update_counts()
+        # If changes need confirmation, store in session metadata
+        if final_state.get("needs_confirmation"):
+            session.session_metadata = {
+                "pending_patch": final_state["proposed_patch"],
+                "pending_updated_config": final_state["updated_config"]
+            }
         
         db.commit()
         
@@ -201,7 +246,7 @@ class ChatService:
             message=final_state["assistant_response"],
             needs_confirmation=final_state.get("needs_confirmation", False),
             proposed_changes=final_state.get("proposed_patch"),
-            updated_config=final_state.get("updated_config")
+            updated_config=final_state.get("updated_config") if not final_state.get("needs_confirmation") else None
         )
         
         return response
