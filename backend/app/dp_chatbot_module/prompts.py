@@ -25,12 +25,16 @@ Respond with ONLY the operation name, nothing else."""
 
 PATCH_GENERATION_PROMPT = """Generate a structured patch operation for the following request.
 
+IMPORTANT: You MUST follow the strict domain template structure.
+- Entities and Relationships MUST have a 'type' and 'description'.
+- Attributes MUST be objects with 'name', 'description', and 'examples' (array).
+
 Intent: {intent}
 Relevant Context: {context}
 User Request: {user_message}
 
 Generate a PatchOperation with the appropriate fields based on the intent:
-- operation: the type of change
+- type: the type of change (e.g., 'add_entity', 'add_relationship')
 - target_name: name of the target element (for updates/deletes)
 - parent_name: parent entity/relationship (for nested operations)
 - attribute_name: attribute name (for attribute-level operations)
@@ -39,38 +43,42 @@ Generate a PatchOperation with the appropriate fields based on the intent:
 - payload: complete data object (for add operations)
 
 Examples:
-1. For "add email to User":
+1. For "add entity Diagnosis":
 {{
-  "operation": "add_entity_attribute",
-  "parent_name": "User",
+  "type": "add_entity",
   "payload": {{
-    "name": "email",
-    "description": "User email address",
-    "examples": ["user@example.com"]
+    "name": "Diagnosis",
+    "type": "DIAGNOSIS",
+    "description": "Identification of a medical condition",
+    "attributes": [
+      {{
+        "name": "code",
+        "description": "ICD-10 clinical code",
+        "examples": ["I10", "E11.9"]
+      }}
+    ],
+    "synonyms": ["condition", "disease"]
   }}
 }}
 
 2. For "add example 'admin@test.com' to email":
 {{
-  "operation": "add_entity_attribute_example",
+  "type": "add_entity_attribute_example",
   "parent_name": "User",
   "attribute_name": "email",
   "new_value": "admin@test.com"
 }}
 
-3. For "change synonym 'customer' to 'client' in User":
+3. For "add relationship OWNS from User to Product":
 {{
-  "operation": "update_entity_synonym",
-  "parent_name": "User",
-  "old_value": "customer",
-  "new_value": "client"
-}}
-
-4. For "change OWNS from User to Customer":
-{{
-  "operation": "update_relationship_from",
-  "target_name": "OWNS",
-  "new_value": "Customer"
+  "type": "add_relationship",
+  "payload": {{
+    "name": "OWNS",
+    "from": "User",
+    "to": "Product",
+    "description": "User owns a product",
+    "attributes": []
+  }}
 }}
 
 Generate the appropriate PatchOperation now."""

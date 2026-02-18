@@ -230,7 +230,7 @@ def generate_diff(old_config: Dict[str, Any], new_config: Dict[str, Any], patch:
     """
     Create human-readable diff preview.
     """
-    operation = patch["operation"]
+    operation = patch.get("type") or patch.get("operation")
     
     # Domain-level operations
     if operation == "update_domain_name":

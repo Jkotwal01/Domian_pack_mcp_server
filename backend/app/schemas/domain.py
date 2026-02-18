@@ -1,35 +1,45 @@
 """Domain configuration schemas."""
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, Field
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Union
 
 
 class AttributeSchema(BaseModel):
-    """Schema for entity/relationship attributes."""
+    """Schema for entity/relationship attributes matching strict template."""
     name: str
     description: str
+    examples: List[str] = []
 
 
 class EntitySchema(BaseModel):
-    """Schema for domain entities."""
+    """Schema for domain entities. Supports flexible descriptions."""
     name: str
     type: str
-    description: str
-    attributes: List[AttributeSchema] = []
+    description: Optional[str] = ""
+    attributes: List[Union[str, AttributeSchema]] = []
     synonyms: List[str] = []
 
 
 class RelationshipSchema(BaseModel):
-    """Schema for entity relationships."""
-    name: str
-    from_: str  # Using from_ to avoid Python keyword
+    """Schema for entity relationships. Supports both strict and legacy formats."""
+    name: Optional[str] = None
+    type: Optional[str] = None
+    from_: str = Field(alias="from")
     to: str
-    description: str
-    attributes: List[AttributeSchema] = []
+    description: Optional[str] = ""
+    attributes: List[Union[str, AttributeSchema]] = []
+    properties: List[Union[str, AttributeSchema]] = []
     
     class Config:
         populate_by_name = True
-        fields = {'from_': 'from'}
+
+    @property
+    def relationship_name(self) -> str:
+        return self.name or self.type or "unnamed"
+
+    @property
+    def relationship_attributes(self) -> List[Any]:
+        return self.attributes or self.properties or []
 
 
 class ExtractionPatternSchema(BaseModel):

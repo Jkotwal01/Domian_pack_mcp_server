@@ -104,6 +104,20 @@ def start_chat_session(domain_id: str):
         st.error(f"Error starting session: {str(e)}")
         return None
 
+def get_domain_detail(domain_id: str):
+    """Get full domain configuration by ID."""
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/domains/{domain_id}",
+            headers=get_headers()
+        )
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except Exception as e:
+        st.error(f"Error fetching domain detail: {str(e)}")
+        return None
+
 def get_chat_history(session_id: str):
     """Fetch chat history from API."""
     try:
@@ -316,9 +330,8 @@ with col2:
     if st.session_state.token and st.session_state.selected_domain:
         st.subheader("📊 Live Configuration")
         
-        # Fetch latest domain data to show live config
-        domains = get_domains()
-        selected_domain = next((d for d in domains if d["id"] == st.session_state.selected_domain), None)
+        # Fetch full domain data for live config
+        selected_domain = get_domain_detail(st.session_state.selected_domain)
         
         if selected_domain:
             # Stats
@@ -328,7 +341,10 @@ with col2:
             
             # Config preview
             st.write("Current Schema:")
-            st.json(selected_domain["config_json"], expanded=1)
+            if "config_json" in selected_domain:
+                st.json(selected_domain["config_json"], expanded=True)
+            else:
+                st.warning("Configuration data missing")
             
             # Operations Guide
             with st.expander("📖 Supported Operations"):

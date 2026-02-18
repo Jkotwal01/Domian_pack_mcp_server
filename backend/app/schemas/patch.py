@@ -1,7 +1,34 @@
-"""Patch operation schemas for domain configuration editing."""
-from pydantic import BaseModel, Field
-from typing import Literal, Optional, Dict, Any
+from pydantic import BaseModel, Field, ConfigDict
+from typing import Literal, Optional, List, Union
 
+class StrictAttributeSchema(BaseModel):
+    """Strict attribute schema for OpenAI compat."""
+    name: str
+    description: str
+    examples: List[str]
+    model_config = ConfigDict(extra="forbid")
+
+class StrictPayloadSchema(BaseModel):
+    """Strict payload schema to resolve OpenAI 'additionalProperties' error."""
+    # Entity fields
+    name: Optional[str] = None
+    type: Optional[str] = None
+    description: Optional[str] = None
+    attributes: Optional[List[StrictAttributeSchema]] = None
+    synonyms: Optional[List[str]] = None
+    
+    # Relationship fields (using aliases for valid JSON keys)
+    from_entity: Optional[str] = Field(default=None, alias="from")
+    to_entity: Optional[str] = Field(default=None, alias="to")
+    
+    # Extraction pattern fields
+    pattern: Optional[str] = None
+    entity_type: Optional[str] = None
+    attribute: Optional[str] = None
+    extract_full_match: Optional[bool] = None
+    confidence: Optional[float] = None
+    
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 class PatchOperation(BaseModel):
     """Structured patch operation from LLM supporting hierarchical edits."""
@@ -67,66 +94,76 @@ class PatchOperation(BaseModel):
         "add_key_term",
         "update_key_term",
         "delete_key_term"
-    ] = Field(description="Type of operation to perform")
+    ] = Field(..., alias="type", description="Type of operation to perform")
     
     target_name: Optional[str] = Field(
-        None, 
+        default=None, 
         description="Name of target entity/relationship/attribute/pattern"
     )
     
     parent_name: Optional[str] = Field(
-        None,
+        default=None,
         description="Parent entity/relationship name (for nested operations)"
     )
     
     attribute_name: Optional[str] = Field(
-        None,
+        default=None,
         description="Attribute name (for attribute-level operations)"
     )
     
     old_value: Optional[str] = Field(
-        None,
+        default=None,
         description="Current value (for update operations on array items)"
     )
     
-    new_value: Optional[Any] = Field(
-        None,
+    new_value: Optional[Union[str, float, bool]] = Field(
+        default=None,
         description="New value for the operation"
     )
     
-    payload: Optional[Dict[str, Any]] = Field(
-        None,
+    payload: Optional[StrictPayloadSchema] = Field(
+        default=None,
         description="Complete data object (for add operations)"
     )
-    
-    class Config:
-        json_schema_extra = {
+
+    model_config = ConfigDict(
+        extra="forbid",
+        populate_by_name=True,
+        json_schema_extra={
             "examples": [
                 {
-                    "operation": "add_entity_attribute",
-                    "parent_name": "User",
+                    "type": "add_entity",
                     "payload": {
-                        "name": "email",
-                        "description": "User email address",
-                        "examples": ["user@example.com"]
+                        "name": "User",
+                        "type": "USER",
+                        "description": "A person who uses the system",
+                        "attributes": [
+                            {
+                                "name": "email",
+                                "description": "Primary email address",
+                                "examples": ["user@example.com"]
+                            }
+                        ],
+                        "synonyms": ["customer", "client"]
                     }
                 },
                 {
-                    "operation": "add_entity_attribute_example",
+                    "type": "add_entity_attribute_example",
                     "parent_name": "User",
                     "attribute_name": "email",
                     "new_value": "admin@example.com"
                 },
                 {
-                    "operation": "update_entity_synonym",
-                    "parent_name": "User",
-                    "old_value": "customer",
-                    "new_value": "client"
-                },
-                {
-                    "operation": "update_relationship_from",
-                    "target_name": "OWNS",
-                    "new_value": "Customer"
+                    "type": "add_relationship",
+                    "payload": {
+                        "name": "OWNS",
+                        "from": "User",
+                        "to": "Product",
+                        "description": "User owns a product",
+                        "attributes": []
+                    }
                 }
             ]
         }
+    )
+

@@ -88,6 +88,15 @@ def apply_patch(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]
         "delete_key_term": delete_key_term
     }
     
+    # Convert Pydantic model payload to dict for compatibility with handlers
+    # that expect dictionary subscripting like patch.payload['name']
+    if hasattr(patch, "payload") and patch.payload is not None:
+        if hasattr(patch.payload, "model_dump"):
+            # Using model_dump (pydantic v2) and excluding None to match dict expectation
+            setattr(patch, "payload", patch.payload.model_dump(by_alias=True, exclude_none=True))
+        elif hasattr(patch.payload, "dict"):
+            setattr(patch, "payload", patch.payload.dict(by_alias=True, exclude_none=True))
+
     handler = operation_map.get(patch.operation)
     if not handler:
         raise ValueError(f"Unknown operation: {patch.operation}")
