@@ -222,32 +222,32 @@ export async function deleteKeyTerm(domainId, termIndex) {
 }
 
 /**
- * CHAT & CHATBOT (COMMENTED OUT - TO BE IMPLEMENTED LATER)
+ * CHAT & CHATBOT
  */
 
-// export async function createChatSession(domainConfigId) {
-//   return apiFetch('/chat/sessions', {
-//     method: 'POST',
-//     body: JSON.stringify({ domain_config_id: domainConfigId })
-//   });
-// }
+export async function createChatSession(domainConfigId) {
+  return apiFetch('/chat/sessions', {
+    method: 'POST',
+    body: JSON.stringify({ domain_config_id: domainConfigId })
+  });
+}
 
-// export async function sendChatMessage(sessionId, message) {
-//   return apiFetch(`/chat/sessions/${sessionId}/message`, {
-//     method: 'POST',
-//     body: JSON.stringify({ message })
-//   });
-// }
+export async function sendChatMessage(sessionId, message) {
+  return apiFetch(`/chat/sessions/${sessionId}/message`, {
+    method: 'POST',
+    body: JSON.stringify({ message })
+  });
+}
 
-// export async function getChatHistory(sessionId) {
-//   return apiFetch(`/chat/sessions/${sessionId}/history`);
-// }
+export async function getChatHistory(sessionId) {
+  return apiFetch(`/chat/sessions/${sessionId}/messages`);
+}
 
-// export async function closeChatSession(sessionId) {
-//   return apiFetch(`/chat/sessions/${sessionId}/close`, {
-//     method: 'POST'
-//   });
-// }
+export async function closeChatSession(sessionId) {
+  return apiFetch(`/chat/sessions/${sessionId}/close`, {
+    method: 'POST'
+  });
+}
 
 /**
  * HEALTH

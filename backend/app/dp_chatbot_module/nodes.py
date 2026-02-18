@@ -5,9 +5,10 @@ from app.dp_chatbot_module.state import AgentState
 from app.dp_chatbot_module.prompts import (
     INTENT_CLASSIFICATION_PROMPT,
     PATCH_GENERATION_PROMPT,
-    ERROR_EXPLANATION_PROMPT
+    ERROR_EXPLANATION_PROMPT,
+    INFO_QUERY_PROMPT
 )
-from app.schemas.patch import PatchOperation
+from app.schemas.patch import PatchOperation, PatchList
 from app.utils.patch_applier import apply_patch
 from app.services.validation_service import ValidationService
 import json
@@ -17,10 +18,10 @@ def classify_intent_node(state: AgentState) -> AgentState:
     """
     Classify user intent using small LLM.
     
-    Uses GPT-3.5-turbo with minimal context (just entity/relationship names).
+    Uses GPT-4o-mini with minimal context (just entity/relationship names).
     Includes retry logic for LLM failures.
     """
-    llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
     
     # Minimal context: just entity/relationship names
     entity_names = [e["name"] for e in state["current_config"].get("entities", [])]
@@ -60,8 +61,13 @@ def generate_patch_node(state: AgentState) -> AgentState:
     if state.get("error_message"):
         return state
     
+    intent = state.get("intent")
+    if intent == "info_query":
+        # Skip patch generation for queries
+        return state
+        
     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-    structured_llm = llm.with_structured_output(PatchOperation)
+    structured_llm = llm.with_structured_output(PatchList)
     
     # Get relevant context slice
     relevant_context = get_relevant_context(state)
@@ -76,8 +82,9 @@ def generate_patch_node(state: AgentState) -> AgentState:
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            patch = structured_llm.invoke(prompt)
-            return {**state, "proposed_patch": patch.dict()}
+            patch_list = structured_llm.invoke(prompt)
+            # Store in state
+            return {**state, "proposed_patch": patch_list.dict()}
         except Exception as e:
             if attempt == max_retries - 1:
                 return {**state, "error_message": f"Failed to generate patch after {max_retries} attempts: {str(e)}"}
@@ -92,16 +99,22 @@ def apply_patch_node(state: AgentState) -> AgentState:
     """
     Apply patch to config using pure Python (no LLM).
     """
-    if state.get("error_message"):
+    if state.get("error_message") or state.get("intent") == "info_query":
         return state
     
     try:
-        patch = PatchOperation(**state["proposed_patch"])
-        updated_config = apply_patch(
-            config=state["current_config"],
-            patch=patch
-        )
-        return {**state, "updated_config": updated_config}
+        patch_list_data = state["proposed_patch"]
+        patch_list = PatchList(**patch_list_data)
+        
+        current_config = state["current_config"]
+        # Apply each patch sequentially
+        for patch in patch_list.patches:
+            current_config = apply_patch(
+                config=current_config,
+                patch=patch
+            )
+            
+        return {**state, "updated_config": current_config}
     except ValueError as e:
         return {**state, "error_message": str(e)}
     except Exception as e:
@@ -112,7 +125,7 @@ def validate_patch_node(state: AgentState) -> AgentState:
     """
     Validate updated config using Pydantic schemas.
     """
-    if state.get("error_message"):
+    if state.get("error_message") or state.get("intent") == "info_query":
         return state
     
     try:
@@ -135,20 +148,30 @@ def prepare_confirmation_node(state: AgentState) -> AgentState:
     """
     Generate diff preview for user confirmation.
     """
-    if state.get("error_message"):
+    if state.get("error_message") or state.get("intent") == "info_query":
         return state
     
     try:
-        diff = generate_diff(
-            old_config=state["current_config"],
-            new_config=state["updated_config"],
-            patch=state["proposed_patch"]
-        )
+        patch_list_data = state["proposed_patch"]
+        
+        diffs = []
+        for patch_data in patch_list_data.get("patches", []):
+            diff = generate_diff(
+                old_config=state["current_config"],
+                new_config=state["updated_config"],
+                patch=patch_data
+            )
+            if diff:  # Only add non-empty diffs
+                diffs.append(diff)
+            
+        final_diff = "\n".join(diffs) if diffs else "No changes to apply."
         
         return {
             **state,
-            "needs_confirmation": True,
-            "diff_preview": diff
+            "needs_confirmation": True if diffs else False,
+            "diff_preview": final_diff,
+            # If no changes, we can skip confirmation
+            "assistant_response": "Everything is already up to date!" if not diffs else state.get("assistant_response", "")
         }
     except Exception as e:
         return {**state, "error_message": f"Failed to generate diff: {str(e)}"}
@@ -173,8 +196,30 @@ def generate_response_node(state: AgentState) -> AgentState:
             # Fallback to raw error
             return {**state, "assistant_response": f"❌ {state['error_message']}\n\nPlease refine your request."}
     
+    # Handle info_query
+    if state.get("intent") == "info_query":
+        try:
+            llm = ChatOpenAI(model="gpt-4o", temperature=0) # Use better model for reasoning
+            # We skip context slicing for info_query to give the AI full view if possible, 
+            # but for very large configs we might need it. For now, let's use the full config.
+            # Convert config to formatted string
+            config_str = json.dumps(state["current_config"], indent=1)
+            # Truncate if too large for GPT-4o context (unlikely to hit limit here, but safer)
+            if len(config_str) > 60000:
+                config_str = config_str[:60000] + "... [truncated]"
+                
+            prompt = INFO_QUERY_PROMPT.format(
+                context=config_str,
+                user_message=state["user_message"]
+            )
+            response = llm.invoke(prompt)
+            return {**state, "assistant_response": response.content.strip()}
+        except Exception as e:
+            return {**state, "assistant_response": f"❌ Failed to answer query: {str(e)}"}
+
     if state["needs_confirmation"]:
-        response = f"{state['diff_preview']}\n\nDo you want to apply these changes? (yes/no)"
+        patch_json = json.dumps(state.get("proposed_patch", {}), indent=2)
+        response = f"{state['diff_preview']}\n\n**Proposed Patch Raw Data:**\n```json\n{patch_json}\n```\n\nDo you want to apply these changes? (yes/no)"
         return {**state, "assistant_response": response}
     
     # Should not reach here in normal flow
@@ -231,6 +276,21 @@ def generate_diff(old_config: Dict[str, Any], new_config: Dict[str, Any], patch:
     Create human-readable diff preview.
     """
     operation = patch.get("type") or patch.get("operation")
+    if not operation:
+        return ""
+        
+    new_val = patch.get("new_value")
+    old_val = patch.get("old_value")
+    
+    # Requirement checks to skip invalid diffs (e.g. from LLM hallucination of None)
+    if operation == "add_key_term" and new_val is None:
+        return ""
+    if operation == "delete_key_term" and old_val is None:
+        return ""
+    if operation == "update_key_term" and (old_val is None or new_val is None):
+        return ""
+    if operation.startswith("update_") and new_val is None and "payload" not in operation:
+        return ""
     
     # Domain-level operations
     if operation == "update_domain_name":

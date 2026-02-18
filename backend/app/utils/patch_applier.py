@@ -639,12 +639,16 @@ def delete_extraction_pattern(config: Dict[str, Any], patch: PatchOperation) -> 
 # ============================================================================
 
 def add_key_term(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
-    """Add key term."""
+    """Add key term. Ignores if already exists (idempotent for bulk)."""
     if "key_terms" not in config:
         config["key_terms"] = []
     
+    if patch.new_value is None or str(patch.new_value).strip() == "":
+        return config # Skip null/empty terms
+        
     if patch.new_value in config["key_terms"]:
-        raise ValueError(f"Key term '{patch.new_value}' already exists")
+        # Instead of raising, we just return for bulk operation success
+        return config
     
     config["key_terms"].append(patch.new_value)
     return config
@@ -652,6 +656,9 @@ def add_key_term(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any
 
 def update_key_term(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Update key term."""
+    if patch.old_value is None or patch.new_value is None:
+        return config
+        
     key_terms = config.get("key_terms", [])
     if patch.old_value in key_terms:
         idx = key_terms.index(patch.old_value)
@@ -662,6 +669,9 @@ def update_key_term(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, 
 
 def delete_key_term(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Delete key term."""
+    if patch.old_value is None:
+        return config
+        
     config["key_terms"] = [
         t for t in config.get("key_terms", []) 
         if t != patch.old_value

@@ -43,11 +43,12 @@ class RelationshipSchema(BaseModel):
 
 
 class ExtractionPatternSchema(BaseModel):
-    """Schema for extraction patterns."""
+    """Schema for extraction patterns. Patterns must be valid Python regex."""
     pattern: str
     entity_type: str
     attribute: str
     extract_full_match: bool = True
+    full_match_template: Optional[str] = None
     confidence: float = 0.9
 
 

@@ -36,7 +36,22 @@ workflow.add_node("generate_response", generate_response_node)
 
 # Define the flow
 workflow.set_entry_point("classify_intent")
-workflow.add_edge("classify_intent", "generate_patch")
+
+def route_after_intent(state: AgentState) -> str:
+    """Route to patching logic or directly to response for info_query."""
+    if state.get("intent") == "info_query":
+        return "generate_response"
+    return "generate_patch"
+
+workflow.add_conditional_edges(
+    "classify_intent",
+    route_after_intent,
+    {
+        "generate_patch": "generate_patch",
+        "generate_response": "generate_response"
+    }
+)
+
 workflow.add_edge("generate_patch", "apply_patch")
 workflow.add_edge("apply_patch", "validate")
 

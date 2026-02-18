@@ -54,6 +54,7 @@ class ValidationService:
             
             # Validate entities
             entity_names = set()
+            entity_types = set()
             for entity in config.get("entities", []):
                 try:
                     EntitySchema(**entity)
@@ -62,6 +63,11 @@ class ValidationService:
                     if entity["name"] in entity_names:
                         errors.append(f"Duplicate entity name: {entity['name']}")
                     entity_names.add(entity["name"])
+                    
+                    # Check for duplicate types
+                    if entity["type"] in entity_types:
+                        errors.append(f"Duplicate entity type: {entity['type']}")
+                    entity_types.add(entity["type"])
                     
                 except ValidationError as e:
                     for err in e.errors():
@@ -72,16 +78,16 @@ class ValidationService:
                 try:
                     RelationshipSchema(**rel)
                     
-                    # Check entity references
-                    if rel.get("from") not in entity_names:
+                    # Check entity references (usually reference the 'type')
+                    if rel.get("from") not in entity_types:
                         errors.append(
                             f"Relationship '{rel.get('name', 'unknown')}' references "
-                            f"unknown entity '{rel.get('from')}'"
+                            f"unknown entity type '{rel.get('from')}'"
                         )
-                    if rel.get("to") not in entity_names:
+                    if rel.get("to") not in entity_types:
                         errors.append(
                             f"Relationship '{rel.get('name', 'unknown')}' references "
-                            f"unknown entity '{rel.get('to')}'"
+                            f"unknown entity type '{rel.get('to')}'"
                         )
                         
                 except ValidationError as e:
@@ -92,6 +98,10 @@ class ValidationService:
             for pattern in config.get("extraction_patterns", []):
                 try:
                     ExtractionPatternSchema(**pattern)
+                    
+                    # Check entity reference
+                    if pattern.get("entity_type") not in entity_types:
+                         errors.append(f"Pattern references unknown entity type: {pattern.get('entity_type')}")
                     
                     # Validate regex
                     try:

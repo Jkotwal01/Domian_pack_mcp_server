@@ -246,6 +246,8 @@ class ChatService:
             message=final_state["assistant_response"],
             needs_confirmation=final_state.get("needs_confirmation", False),
             proposed_changes=final_state.get("proposed_patch"),
+            proposed_patch=final_state.get("proposed_patch"),
+            diff_preview=final_state.get("diff_preview"),
             updated_config=final_state.get("updated_config") if not final_state.get("needs_confirmation") else None
         )
         

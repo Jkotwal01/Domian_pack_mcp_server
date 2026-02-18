@@ -52,4 +52,6 @@ class ChatResponse(BaseModel):
     message: str
     needs_confirmation: bool = False
     proposed_changes: Optional[Dict[str, Any]] = None
+    proposed_patch: Optional[Dict[str, Any]] = None # Align with state name
+    diff_preview: Optional[str] = None
     updated_config: Optional[Dict[str, Any]] = None

@@ -167,3 +167,26 @@ class PatchOperation(BaseModel):
         }
     )
 
+class PatchList(BaseModel):
+    """List of patch operations for bulk processing."""
+    patches: List[PatchOperation] = Field(..., description="Sequence of patch operations to apply")
+    
+    model_config = ConfigDict(
+        extra="forbid",
+        json_schema_extra={
+            "examples": [
+                {
+                    "patches": [
+                        {
+                            "type": "add_key_term",
+                            "new_value": "dosage"
+                        },
+                        {
+                            "type": "add_key_term",
+                            "new_value": "allergy"
+                        }
+                    ]
+                }
+            ]
+        }
+    )
