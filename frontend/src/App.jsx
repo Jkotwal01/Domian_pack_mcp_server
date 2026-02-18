@@ -80,11 +80,14 @@ function AppContent() {
   };
 
   const handleProceedToEnhancement = (domainId, domainName, sessionId) => {
-    let existingSession = sessions.find(s => s.mcpSessionId === sessionId);
+    // Look for existing session that matches this domain
+    let existingSession = sessions.find(s => s.domainConfigId === domainId || s.mcpSessionId === sessionId);
     
     if (!existingSession) {
       addSession({
         title: domainName,
+        domainConfigId: domainId,
+        mcpSessionId: sessionId
       });
     } else {
       switchSession(existingSession.id);
@@ -93,8 +96,17 @@ function AppContent() {
     setIsChatOpen(true);
   };
 
-  const { messages, isTyping, uploadingFiles, sendMessage, handleConfirmIntent, messagesEndRef } = useChat(
+  const { 
+    messages, 
+    isTyping, 
+    uploadingFiles, 
+    sendMessage, 
+    handleConfirmIntent, 
+    deleteCurrentSession, 
+    messagesEndRef 
+  } = useChat(
     activeSessionId,
+    activeSession?.domainConfigId || null,
     activeSession?.mcpSessionId || null,
     activeSession?.messages || [],
     (newMessages) => {
@@ -152,6 +164,7 @@ function AppContent() {
                       uploadingFiles={uploadingFiles}
                       onSendMessage={sendMessage} 
                       onConfirmIntent={handleConfirmIntent}
+                      onDelete={deleteCurrentSession}
                       messagesEndRef={messagesEndRef}
                       sidebarOpen={false}
                       toggleSidebar={() => {}} 

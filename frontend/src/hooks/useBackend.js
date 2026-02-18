@@ -3,7 +3,9 @@ import {
   sendChatIntent, 
   confirmChatIntent, 
   checkHealth,
-  createSession 
+  createSession,
+  createChatSession,
+  deleteChatSession
 } from '../services/api';
 
 /**
@@ -38,38 +40,43 @@ export const useBackend = () => {
   };
 
   /**
-   * Start a new session if none exists
+   * Start a new chat session if none exists for the given domain
    */
-  const ensureSession = async (sessionId, initialContent = "{}", file = null) => {
-    // If no ID or if it's a frontend-only temporary ID, create a real session
-    if (!sessionId || sessionId.startsWith('temp_')) {
+  const ensureSession = async (domainConfigId) => {
+    console.log('[useBackend] ensureSession called with domainConfigId:', domainConfigId);
+    if (domainConfigId) {
       try {
-        const data = await createSession(file || initialContent, 'yaml', { source: 'frontend' });
-        return data.session_id;
+        const data = await createChatSession(domainConfigId);
+        console.log('[useBackend] session created/retrieved:', data);
+        return data.id; 
       } catch (err) {
-        setError("Failed to create session: " + err.message);
+        console.error('[useBackend] Failed to create chat session:', err);
+        setError("Failed to create chat session: " + err.message);
         return null;
       }
     }
-    return sessionId;
+    console.warn('[useBackend] No domainConfigId provided to ensureSession');
+    return null;
   };
 
   /**
    * Send a message to the backend and get an intent or suggestion
    */
-  const getIntent = async (message, sessionId, file = null) => {
+  const getIntent = async (message, domainConfigId) => {
+    console.log('[useBackend] getIntent called:', { message, domainConfigId });
     try {
-      // Ensure we have a session
-      const validSessionId = await ensureSession(sessionId, "{}", file);
-      if (!validSessionId) throw new Error("Could not initialize session");
+      const chatSessionId = await ensureSession(domainConfigId);
+      if (!chatSessionId) throw new Error("Could not initialize chat session");
 
-      const result = await sendChatIntent(validSessionId, message);
+      console.log('[useBackend] sending message to session:', chatSessionId);
+      const result = await sendChatIntent(chatSessionId, message);
       setError(null);
       return {
         ...result,
-        sessionId: validSessionId
+        sessionId: chatSessionId
       };
     } catch (err) {
+      console.error('[useBackend] getIntent error:', err);
       setError(err.message);
       return { success: false, error: err.message };
     }
@@ -89,11 +96,23 @@ export const useBackend = () => {
     }
   };
 
+  const deleteSession = async (sessionId) => {
+    try {
+      await deleteChatSession(sessionId);
+      setError(null);
+      return true;
+    } catch (err) {
+      setError(err.message);
+      return false;
+    }
+  };
+
   return {
     isConnected,
     error,
     getIntent,
     confirmIntent,
+    deleteSession,
     connect: checkBackendHealth
   };
 };

@@ -45,7 +45,8 @@ export const useChatSessions = () => {
     const tempId = `temp_${Date.now()}`;
     return {
       id: tempId,
-      mcpSessionId: null,  // Will be set by backend after create_session
+      mcpSessionId: null,  // This will be the REAL ChatSession database ID
+      domainConfigId: null, // The ID of the DomainConfig being worked on
       title,
       messages: [],
       createdAt: new Date().toISOString(),

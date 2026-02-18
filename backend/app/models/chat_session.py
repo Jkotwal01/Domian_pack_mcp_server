@@ -1,7 +1,7 @@
 """Chat session model."""
 import uuid
 from datetime import datetime
-from sqlalchemy import Column, String, DateTime, ForeignKey, Index
+from sqlalchemy import Column, String, DateTime, ForeignKey, Index, Integer
 from sqlalchemy.dialects.postgresql import UUID, ENUM, JSONB
 from sqlalchemy.orm import relationship
 import enum
@@ -30,6 +30,9 @@ class ChatSession(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     last_activity_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
     session_metadata = Column(JSONB, default=dict, nullable=False)  # Renamed from 'metadata' to avoid SQLAlchemy conflict
+    total_llm_calls = Column(Integer, default=0, nullable=False)
+    total_input_tokens = Column(Integer, default=0, nullable=False)
+    total_output_tokens = Column(Integer, default=0, nullable=False)
 
 
     

@@ -14,10 +14,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440  # 24 hours
     
-    # OpenAI
-    OPENAI_API_KEY: str
+    # LLM Settings
+    LLM_PROVIDER: str = "openai"  # "openai" or "groq"
+    OPENAI_MODEL: str = "gpt-4o-mini"
+    GROQ_MODEL: str = "llama-3.3-70b-versatile"
 
-    # groq
+    # API Keys
+    OPENAI_API_KEY: str
     GROQ_API_KEY: str
     
     # App

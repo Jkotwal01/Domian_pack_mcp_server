@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.config import settings
 from app.database import Base
-from app.models import User, DomainConfig, ChatSession, ChatMessage
+from app.models import User, DomainConfig, ChatSession, ChatMessage, LLMUsage
 
 # this is the Alembic Config object
 config = context.config

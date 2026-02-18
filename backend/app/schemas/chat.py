@@ -19,6 +19,9 @@ class ChatSessionResponse(BaseModel):
     status: SessionStatus
     created_at: datetime
     last_activity_at: datetime
+    total_llm_calls: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
     
     class Config:
         from_attributes = True

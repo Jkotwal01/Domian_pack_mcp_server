@@ -10,6 +10,8 @@ class LLMMonitor:
     
     def __init__(self):
         self.total_calls = 0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
         self.total_response_time = 0.0
         self.call_history: List[Dict] = []
         self.start_time = datetime.now()
@@ -32,16 +34,31 @@ class LLMMonitor:
             }
             self.call_history.append(call_info)
             
-            # Print to terminal
-            avg_time = self.total_response_time / self.total_calls
-            print(f"\n{'='*60}")
-            print(f"🤖 LLM API Call #{self.total_calls}")
-            print(f"   Operation: {operation}")
-            print(f"   Response Time: {duration:.2f}s")
-            print(f"   Average Response Time: {avg_time:.2f}s")
-            print(f"   Total Calls: {self.total_calls}")
-            print(f"{'='*60}\n")
+            # Note: Token updates should be handled via update_tokens() 
+            # as they are usually extracted from response metadata
     
+    def update_tokens(self, input_tokens: int, output_tokens: int, db=None):
+        """Update token counts in memory and optionally in DB."""
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        
+        if db:
+            try:
+                from app.models.llm_usage import LLMUsage
+                usage = db.query(LLMUsage).first()
+                if not usage:
+                    usage = LLMUsage(total_calls=self.total_calls, 
+                                    total_input_tokens=self.total_input_tokens,
+                                    total_output_tokens=self.total_output_tokens)
+                    db.add(usage)
+                else:
+                    usage.total_calls = self.total_calls
+                    usage.total_input_tokens = self.total_input_tokens
+                    usage.total_output_tokens = self.total_output_tokens
+                db.commit()
+            except Exception as e:
+                print(f"Error updating global LLM stats: {e}")
+
     def get_stats(self) -> Dict:
         """Get current statistics."""
         avg_time = self.total_response_time / self.total_calls if self.total_calls > 0 else 0
@@ -49,6 +66,8 @@ class LLMMonitor:
         
         return {
             "total_calls": self.total_calls,
+            "total_input_tokens": self.total_input_tokens,
+            "total_output_tokens": self.total_output_tokens,
             "total_response_time": round(self.total_response_time, 2),
             "average_response_time": round(avg_time, 2),
             "uptime_seconds": round(uptime, 2),
@@ -62,6 +81,8 @@ class LLMMonitor:
         print("📊 LLM API MONITORING SUMMARY")
         print("="*60)
         print(f"Total API Calls:        {stats['total_calls']}")
+        print(f"Input Tokens:           {stats['total_input_tokens']}")
+        print(f"Output Tokens:          {stats['total_output_tokens']}")
         print(f"Total Response Time:    {stats['total_response_time']}s")
         print(f"Average Response Time:  {stats['average_response_time']}s")
         print(f"Uptime:                 {stats['uptime_seconds']}s")

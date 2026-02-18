@@ -168,7 +168,8 @@ class PatchOperation(BaseModel):
     )
 
 class PatchList(BaseModel):
-    """List of patch operations for bulk processing."""
+    """List of patch operations with concise reasoning."""
+    reasoning: Optional[str] = Field(None, description="Concise explanation of the plan (1-2 sentences)")
     patches: List[PatchOperation] = Field(..., description="Sequence of patch operations to apply")
     
     model_config = ConfigDict(

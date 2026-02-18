@@ -19,89 +19,49 @@ Classify the intent as ONE of these operations:
 - add_relationship_attribute_example, update_relationship_attribute_example, delete_relationship_attribute_example
 - add_extraction_pattern, update_extraction_pattern_pattern, update_extraction_pattern_entity_type, update_extraction_pattern_attribute, update_extraction_pattern_extract_full_match, update_extraction_pattern_confidence, delete_extraction_pattern
 - add_key_term, update_key_term, delete_key_term
-- info_query (for general questions, listing entities, suggestions for new entities/attributes, or clarifying the domain)
+- info_query (for specific questions ABOUT the current configuration: "what entities do I have?", "list my attributes", "show extraction patterns")
+- general_query (for general knowledge about domain packs, how the system works, best practices for schema design, or suggestions for new domains/concepts)
+
+CRITICAL RULES FOR NAMING CONFLICTS:
+1. If the user asks to ADD an element (Entity, Relationship) that ALREADY EXISTS in the 'Current Domain Context' below, DO NOT use an 'add_' operation.
+2. Instead, if they are providing new details, classify it as the corresponding 'update_' operation.
+3. If they are just stating it exists or asking about it, classify it as 'info_query'.
+4. This avoids 'duplicate name' errors during validation.
 
 Examples:
-- "suggest some entities" -> info_query
-- "show me current entities" -> info_query
-- "how are Case and Court related?" -> info_query
-- "add a new entity Patient" -> add_entity
-- "rename Case to LegalMatter" -> update_entity_name
-- "remove key term tax" -> delete_key_term
+- "list all entities" -> info_query
+- "show me attributes for Case" -> info_query
+- "what is a domain pack?" -> general_query
+- "how should I structure extraction patterns?" -> general_query
+- "suggest some medical entities for a new clinic domain" -> general_query
 
 Respond with ONLY the operation name, nothing else."""
 
 
-PATCH_GENERATION_PROMPT = """Generate a sequence of structured patch operations for the following request.
-
-IMPORTANT: You MUST return a PatchList containing an array of one or more patches.
-- You MUST follow the strict domain template structure for each patch.
-- Entities and Relationships MUST have a 'type' and 'description'.
-- Attributes MUST be objects with 'name', 'description', and 'examples' (array).
-- Extraction Patterns MUST use valid Python REGEX in the 'pattern' field.
-
+PATCH_GENERATION_PROMPT = """Generate PatchList (array of PatchOperations) for:
 Intent: {intent}
-Relevant Context: {context}
-User Request: {user_message}
+Context: {context}
+Request: {user_message}
 
-Generate a PatchList with a list of PatchOperations. Each PatchOperation should have:
-- type: the type of change (e.g., 'add_entity', 'add_extraction_pattern')
-- target_name: name of the target element (for entity/relationship updates/deletes)
-- parent_name: parent entity/relationship (for nested/attribute operations)
-- attribute_name: attribute name (for attribute-level operations)
-- old_value: the current value to be replaced or deleted (MANDATORY for delete_key_term, update_key_term, etc.)
-- new_value: the new value (for updates or simple additions like add_key_term)
-- payload: complete data object (MANDATORY for add_entity, add_relationship, add_extraction_pattern, etc.)
+RULES:
+- REASONING: Provide 1-2 concise sentences explaining your plan.
+- Entities/Relationships MUST have 'type' and 'description'.
+- Attributes: {{"name": str, "description": str, "examples": []}}
+- Extraction Patterns: valid Python REGEX.
+- CONFLICTS: If ADDING something that EXISTS in Context, use 'update' instead.
 
-Examples:
-1. For adding multiple key terms:
+PatchOperation Schema:
+- type: e.g. 'add_entity', 'update_entity_name'
+- target_name, parent_name, attribute_name, old_value, new_value, payload (as needed)
+
+Example (Multiple actions):
 {{
+  "reasoning": "Plan to add a new 'dosage' key term and create the 'Dx' entity.",
   "patches": [
     {{ "type": "add_key_term", "new_value": "dosage" }},
-    {{ "type": "add_key_term", "new_value": "allergy" }}
+    {{ "type": "add_entity", "payload": {{"name": "Dx", "type": "DX", "description": "...", "attributes": []}} }}
   ]
-}}
-
-2. For adding an Extraction Pattern:
-{{
-  "patches": [
-    {{
-      "type": "add_extraction_pattern",
-      "payload": {{
-        "pattern": "SPECIAL LEAVE PETITION NO\\\\.?\\\\s*(\\\\d+)\\\\s+OF\\\\s*(\\\\d{{4}})",
-        "attribute": "case_number",
-        "entity_type": "CASE",
-        "confidence": 0.95,
-        "extract_full_match": true,
-        "full_match_template": "SPECIAL LEAVE PETITION NO. {{0}} OF {{1}}"
-      }}
-    }}
-  ]
-}}
-
-3. For "add entity Diagnosis":
-{{
-  "patches": [
-    {{
-      "type": "add_entity",
-      "payload": {{
-        "name": "Diagnosis",
-        "type": "DIAGNOSIS",
-        "description": "Identification of a medical condition",
-        "attributes": [
-          {{
-            "name": "code",
-            "description": "ICD-10 clinical code",
-            "examples": ["I10", "E11.9"]
-          }}
-        ],
-        "synonyms": ["condition", "disease"]
-      }}
-    }}
-  ]
-}}
-
-Generate the appropriate PatchList now."""
+}}"""
 
 
 ERROR_EXPLANATION_PROMPT = """The following error occurred while trying to apply a change to the domain configuration:
@@ -130,3 +90,20 @@ Answer the user's question accurately based ONLY on the provided configuration.
 - If you don't know the answer or it's not in the config, say so politely.
 
 Your response should be friendly and formatted in markdown."""
+
+
+GENERAL_KNOWLEDGE_PROMPT = """You are an expert in Domain Pack configuration and data modeling.
+The user has a general question about domain packs, system functionality, or broad data modeling concepts.
+
+Documentation Context:
+{context}
+
+User Question: {user_message}
+
+Answer the user's question comprehensively.
+- Explain core concepts like Entities, Relationships, Extraction Patterns, and Key Terms if relevant.
+- provide best practices for domain pack design.
+- If suggesting new concepts, be creative and align with the user's apparent goal.
+- Maintain a helpful, assistant-like persona: "Domain Pack AI Assistant".
+
+Your response should be professional, formatted in markdown, and very clear."""

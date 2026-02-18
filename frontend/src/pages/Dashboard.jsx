@@ -246,23 +246,32 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
                     </p>
                   </div>
 
-                  <div className="space-y-4 pt-4 border-t border-slate-50">
-                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Configuration Overview</h4>
-                    <div className="flex flex-wrap gap-2 justify-center">
-                      <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-100 shadow-sm">
-                        {session.entity_count || 0} Entities
-                      </span>
-                      <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg border border-purple-100 shadow-sm">
-                        {session.relationship_count || 0} Relationships
-                      </span>
-                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-lg border border-emerald-100 shadow-sm">
-                        {session.extraction_pattern_count || 0} Patterns
-                      </span>
-                      <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100 shadow-sm">
-                        {session.key_term_count || 0} Key Terms
-                      </span>
+                    <div className="space-y-4 pt-4 border-t border-slate-50">
+                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Configuration Overview</h4>
+                      <div className="flex flex-wrap gap-2 justify-center">
+                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-100 shadow-sm">
+                          {session.entity_count || 0} Entities
+                        </span>
+                        <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg border border-purple-100 shadow-sm">
+                          {session.relationship_count || 0} Relationships
+                        </span>
+                      </div>
+                      
+                      <div className="pt-2">
+                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-2">LLM Consumption</h4>
+                        <div className="flex flex-wrap gap-2 justify-center">
+                          <span className="px-3 py-1 bg-slate-50 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200 shadow-sm flex items-center">
+                            <span className="mr-1">🤖</span> {session.total_llm_calls || 0} Calls
+                          </span>
+                          <span className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-lg border border-amber-100 shadow-sm flex items-center">
+                            <span className="mr-1">📥</span> {session.total_input_tokens || 0} In
+                          </span>
+                          <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg border border-emerald-100 shadow-sm flex items-center">
+                            <span className="mr-1">📤</span> {session.total_output_tokens || 0} Out
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
                 </div>
               );
             })}

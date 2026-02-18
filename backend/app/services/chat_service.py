@@ -18,7 +18,7 @@ class ChatService:
     """Service for chat session and message management."""
     
     MAX_MESSAGES_PER_SESSION = 100
-    CONTEXT_MESSAGE_COUNT = 10  # Number of recent messages to include in context
+    CONTEXT_MESSAGE_COUNT = 4  # Reduced from 10 to minimize token usage
     
     @staticmethod
     def create_or_get_session(
@@ -65,7 +65,7 @@ class ChatService:
         welcome_msg = ChatMessage(
             session_id=new_session.id,
             role=MessageRole.ASSISTANT,
-            message=f"Hello! I'm here to help you configure the '{domain.name}' domain. You can ask me to add entities, relationships, extraction patterns, or key terms. What would you like to do?"
+            message="I'm your **Domain Pack AI Assistant**. I specialize in generating and maintaining complex structures like entities, rules, and reasoning templates.\n\nI've loaded your project context and I'm ready to help you enhance this domain pack. What would you like to do?"
         )
         db.add(welcome_msg)
         db.commit()
@@ -116,6 +116,20 @@ class ChatService:
         """
         session = ChatService.get_session(db, session_id, user)
         session.status = SessionStatus.CLOSED
+        db.commit()
+
+    @staticmethod
+    def delete_session(db: Session, session_id: UUID, user: User) -> None:
+        """
+        Permanently delete a chat session and its messages.
+        
+        Args:
+            db: Database session
+            session_id: Session UUID
+            user: Current user
+        """
+        session = ChatService.get_session(db, session_id, user)
+        db.delete(session)
         db.commit()
     
     @staticmethod
@@ -192,7 +206,7 @@ class ChatService:
                 db.commit()
                 
                 return ChatResponse(
-                    message="✅ Changes applied successfully!",
+                    message=f"✅ Changes for the '{domain.name}' domain have been applied successfully!",
                     updated_config=domain.config_json
                 )
             
@@ -221,8 +235,33 @@ class ChatService:
             chat_history=chat_history
         )
         
-        # Execute graph
-        final_state = domain_graph.invoke(initial_state)
+        # Execute graph with monitoring
+        from langchain_community.callbacks import get_openai_callback
+        from app.utils.llm_monitor import llm_monitor
+        
+        try:
+            with get_openai_callback() as cb:
+                final_state = domain_graph.invoke(initial_state)
+                
+                # Update monitoring stats
+                llm_monitor.update_tokens(
+                    input_tokens=cb.prompt_tokens,
+                    output_tokens=cb.completion_tokens,
+                    db=db
+                )
+                
+                # Update session stats
+                session.total_llm_calls += cb.successful_requests
+                session.total_input_tokens += cb.prompt_tokens
+                session.total_output_tokens += cb.completion_tokens
+                db.commit()
+                
+                print(f"📊 Session Stats Updated: Calls={session.total_llm_calls}, Tokens={session.total_input_tokens + session.total_output_tokens}")
+        except Exception as e:
+            print(f"Error during graph execution or monitoring: {e}")
+            # Fallback to normal execution if monitoring fails (though invoke already happened)
+            # Actually if it failed here, final_state might not be defined
+            raise e
         
         # Save assistant response
         assistant_message = ChatMessage(

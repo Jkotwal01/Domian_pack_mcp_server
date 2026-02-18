@@ -7,7 +7,8 @@ from app.dp_chatbot_module.nodes import (
     apply_patch_node,
     validate_patch_node,
     prepare_confirmation_node,
-    generate_response_node
+    generate_response_node,
+    general_knowledge_node
 )
 
 
@@ -33,14 +34,18 @@ workflow.add_node("apply_patch", apply_patch_node)
 workflow.add_node("validate", validate_patch_node)
 workflow.add_node("prepare_confirmation", prepare_confirmation_node)
 workflow.add_node("generate_response", generate_response_node)
+workflow.add_node("general_knowledge", general_knowledge_node)
 
 # Define the flow
 workflow.set_entry_point("classify_intent")
 
 def route_after_intent(state: AgentState) -> str:
     """Route to patching logic or directly to response for info_query."""
-    if state.get("intent") == "info_query":
+    intent = state.get("intent")
+    if intent == "info_query":
         return "generate_response"
+    elif intent == "general_query":
+        return "general_knowledge"
     return "generate_patch"
 
 workflow.add_conditional_edges(
@@ -48,7 +53,8 @@ workflow.add_conditional_edges(
     route_after_intent,
     {
         "generate_patch": "generate_patch",
-        "generate_response": "generate_response"
+        "generate_response": "generate_response",
+        "general_knowledge": "general_knowledge"
     }
 )
 
@@ -67,6 +73,7 @@ workflow.add_conditional_edges(
 
 workflow.add_edge("prepare_confirmation", "generate_response")
 workflow.add_edge("generate_response", END)
+workflow.add_edge("general_knowledge", END)
 
 # Compile the graph
 domain_graph = workflow.compile()

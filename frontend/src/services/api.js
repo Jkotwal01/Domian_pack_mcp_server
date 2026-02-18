@@ -249,6 +249,12 @@ export async function closeChatSession(sessionId) {
   });
 }
 
+export async function deleteChatSession(sessionId) {
+  return apiFetch(`/chat/sessions/${sessionId}`, {
+    method: 'DELETE'
+  });
+}
+
 /**
  * HEALTH
  */
@@ -406,15 +412,14 @@ export async function getAvailableTools() {
   return [];
 }
 
-// Chat intent (commented out, will be implemented later)
+// Chat intent (pointing to new implementation)
 export async function sendChatIntent(sessionId, message) {
-  console.warn('sendChatIntent is not implemented yet');
-  return { success: false, message: 'Chatbot not implemented yet' };
+  return sendChatMessage(sessionId, message);
 }
 
 export async function confirmChatIntent(sessionId, intentId, approved = true) {
-  console.warn('confirmChatIntent is not implemented yet');
-  return { success: false, message: 'Chatbot not implemented yet' };
+  const message = approved ? "yes" : "no";
+  return sendChatMessage(sessionId, message);
 }
 
 export async function getAllVersions() {

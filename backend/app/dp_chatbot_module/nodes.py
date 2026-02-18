@@ -1,12 +1,13 @@
 """LangGraph nodes for domain configuration chatbot workflow."""
 from typing import Dict, Any
-from langchain_openai import ChatOpenAI
 from app.dp_chatbot_module.state import AgentState
+from app.utils.llm_factory import get_llm
 from app.dp_chatbot_module.prompts import (
     INTENT_CLASSIFICATION_PROMPT,
     PATCH_GENERATION_PROMPT,
     ERROR_EXPLANATION_PROMPT,
-    INFO_QUERY_PROMPT
+    INFO_QUERY_PROMPT,
+    GENERAL_KNOWLEDGE_PROMPT
 )
 from app.schemas.patch import PatchOperation, PatchList
 from app.utils.patch_applier import apply_patch
@@ -21,13 +22,26 @@ def classify_intent_node(state: AgentState) -> AgentState:
     Uses GPT-4o-mini with minimal context (just entity/relationship names).
     Includes retry logic for LLM failures.
     """
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    if state.get("error_message"):
+        return state
+        
+    llm = get_llm(temperature=0)
     
-    # Minimal context: just entity/relationship names
-    entity_names = [e["name"] for e in state["current_config"].get("entities", [])]
-    rel_names = [r["name"] for r in state["current_config"].get("relationships", [])]
+    # Limit context size for classification
+    entities = state["current_config"].get("entities", [])
+    relationships = state["current_config"].get("relationships", [])
     
-    context = f"Entities: {', '.join(entity_names)}\nRelationships: {', '.join(rel_names)}"
+    if len(entities) > 20:
+        entity_context = f"{len(entities)} entities (including: {', '.join([e['name'] for e in entities[:5]])}...)"
+    else:
+        entity_context = f"Entities: {', '.join([e['name'] for e in entities])}"
+        
+    if len(relationships) > 20:
+        rel_context = f"{len(relationships)} relationships (including: {', '.join([r['name'] for r in relationships[:5]])}...)"
+    else:
+        rel_context = f"Relationships: {', '.join([r['name'] for r in relationships])}"
+    
+    context = f"{entity_context}\n{rel_context}"
     
     prompt = INTENT_CLASSIFICATION_PROMPT.format(
         context=context,
@@ -66,7 +80,7 @@ def generate_patch_node(state: AgentState) -> AgentState:
         # Skip patch generation for queries
         return state
         
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm = get_llm(temperature=0)
     structured_llm = llm.with_structured_output(PatchList)
     
     # Get relevant context slice
@@ -146,35 +160,22 @@ def validate_patch_node(state: AgentState) -> AgentState:
 
 def prepare_confirmation_node(state: AgentState) -> AgentState:
     """
-    Generate diff preview for user confirmation.
+    Check if patches were generated and set confirmation flag.
     """
     if state.get("error_message") or state.get("intent") == "info_query":
         return state
     
     try:
         patch_list_data = state["proposed_patch"]
-        
-        diffs = []
-        for patch_data in patch_list_data.get("patches", []):
-            diff = generate_diff(
-                old_config=state["current_config"],
-                new_config=state["updated_config"],
-                patch=patch_data
-            )
-            if diff:  # Only add non-empty diffs
-                diffs.append(diff)
-            
-        final_diff = "\n".join(diffs) if diffs else "No changes to apply."
+        has_patches = patch_list_data and patch_list_data.get("patches")
         
         return {
             **state,
-            "needs_confirmation": True if diffs else False,
-            "diff_preview": final_diff,
-            # If no changes, we can skip confirmation
-            "assistant_response": "Everything is already up to date!" if not diffs else state.get("assistant_response", "")
+            "needs_confirmation": True if has_patches else False,
+            "assistant_response": "Everything is already up to date!" if not has_patches else state.get("assistant_response", "")
         }
     except Exception as e:
-        return {**state, "error_message": f"Failed to generate diff: {str(e)}"}
+        return {**state, "error_message": f"Failed to prepare confirmation: {str(e)}"}
 
 
 def generate_response_node(state: AgentState) -> AgentState:
@@ -184,7 +185,7 @@ def generate_response_node(state: AgentState) -> AgentState:
     if state.get("error_message"):
         # Use LLM to explain error in friendly way
         try:
-            llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
+            llm = get_llm(temperature=0)
             prompt = ERROR_EXPLANATION_PROMPT.format(
                 error_message=state["error_message"],
                 user_message=state["user_message"]
@@ -199,17 +200,13 @@ def generate_response_node(state: AgentState) -> AgentState:
     # Handle info_query
     if state.get("intent") == "info_query":
         try:
-            llm = ChatOpenAI(model="gpt-4o", temperature=0) # Use better model for reasoning
-            # We skip context slicing for info_query to give the AI full view if possible, 
-            # but for very large configs we might need it. For now, let's use the full config.
-            # Convert config to formatted string
-            config_str = json.dumps(state["current_config"], indent=1)
-            # Truncate if too large for GPT-4o context (unlikely to hit limit here, but safer)
-            if len(config_str) > 60000:
-                config_str = config_str[:60000] + "... [truncated]"
+            llm = get_llm(temperature=0)
+            
+            # Use context slicer to get minimal relevant info
+            context_str = get_relevant_context(state)
                 
             prompt = INFO_QUERY_PROMPT.format(
-                context=config_str,
+                context=context_str,
                 user_message=state["user_message"]
             )
             response = llm.invoke(prompt)
@@ -218,13 +215,39 @@ def generate_response_node(state: AgentState) -> AgentState:
             return {**state, "assistant_response": f"❌ Failed to answer query: {str(e)}"}
 
     if state["needs_confirmation"]:
-        patch_json = json.dumps(state.get("proposed_patch", {}), indent=2)
-        response = f"{state['diff_preview']}\n\n**Proposed Patch Raw Data:**\n```json\n{patch_json}\n```\n\nDo you want to apply these changes? (yes/no)"
+        response = "I've analyzed your request and prepared the following changes. Please review the detailed patch payload below."
         return {**state, "assistant_response": response}
     
+    # Check if there was a patch that was automatically applied
+    if state.get("proposed_patch") and state.get("updated_config"):
+        return {**state, "assistant_response": "✅ Changes applied successfully! You can see the details below."}
+    
     # Should not reach here in normal flow
-    response = "✅ Changes applied successfully!"
+    response = "✅ Operation completed successfully!"
     return {**state, "assistant_response": response}
+
+
+def general_knowledge_node(state: AgentState) -> AgentState:
+    """
+    Handle general queries using system knowledge base.
+    """
+    try:
+        import os
+        kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base.md")
+        kb_content = ""
+        if os.path.exists(kb_path):
+            with open(kb_path, "r", encoding="utf-8") as f:
+                kb_content = f.read()
+        
+        llm = get_llm(temperature=0)
+        prompt = GENERAL_KNOWLEDGE_PROMPT.format(
+            context=kb_content or "No additional documentation available.",
+            user_message=state["user_message"]
+        )
+        response = llm.invoke(prompt)
+        return {**state, "assistant_response": response.content.strip()}
+    except Exception as e:
+        return {**state, "assistant_response": f"❌ Failed to answer general query: {str(e)}"}
 
 
 # ============================================================================
@@ -269,123 +292,3 @@ def extract_target_name(user_message: str, config: Dict[str, Any]) -> str:
             return rel["name"]
     
     return ""
-
-
-def generate_diff(old_config: Dict[str, Any], new_config: Dict[str, Any], patch: Dict[str, Any]) -> str:
-    """
-    Create human-readable diff preview.
-    """
-    operation = patch.get("type") or patch.get("operation")
-    if not operation:
-        return ""
-        
-    new_val = patch.get("new_value")
-    old_val = patch.get("old_value")
-    
-    # Requirement checks to skip invalid diffs (e.g. from LLM hallucination of None)
-    if operation == "add_key_term" and new_val is None:
-        return ""
-    if operation == "delete_key_term" and old_val is None:
-        return ""
-    if operation == "update_key_term" and (old_val is None or new_val is None):
-        return ""
-    if operation.startswith("update_") and new_val is None and "payload" not in operation:
-        return ""
-    
-    # Domain-level operations
-    if operation == "update_domain_name":
-        return f"~ Change domain name to '{patch['new_value']}'"
-    elif operation == "update_domain_description":
-        return f"~ Update domain description to '{patch['new_value']}'"
-    elif operation == "update_domain_version":
-        return f"~ Update version to '{patch['new_value']}'"
-    
-    # Entity operations
-    elif operation == "add_entity":
-        return f"+ Add entity '{patch['payload']['name']}'"
-    elif operation == "update_entity_name":
-        return f"~ Rename entity '{patch['target_name']}' to '{patch['new_value']}'"
-    elif operation == "update_entity_type":
-        return f"~ Change type of '{patch['target_name']}' to '{patch['new_value']}'"
-    elif operation == "update_entity_description":
-        return f"~ Update description of '{patch['target_name']}'"
-    elif operation == "delete_entity":
-        return f"- Delete entity '{patch['target_name']}'"
-    
-    # Entity attribute operations
-    elif operation == "add_entity_attribute":
-        return f"+ Add attribute '{patch['payload']['name']}' to {patch['parent_name']}"
-    elif operation == "update_entity_attribute_name":
-        return f"~ Rename attribute '{patch['attribute_name']}' to '{patch['new_value']}' in {patch['parent_name']}"
-    elif operation == "update_entity_attribute_description":
-        return f"~ Update description of {patch['parent_name']}.{patch['attribute_name']}"
-    elif operation == "delete_entity_attribute":
-        return f"- Remove attribute '{patch['attribute_name']}' from {patch['parent_name']}"
-    
-    # Entity attribute examples
-    elif operation == "add_entity_attribute_example":
-        return f"+ Add example '{patch['new_value']}' to {patch['parent_name']}.{patch['attribute_name']}"
-    elif operation == "update_entity_attribute_example":
-        return f"~ Change example '{patch['old_value']}' to '{patch['new_value']}' in {patch['parent_name']}.{patch['attribute_name']}"
-    elif operation == "delete_entity_attribute_example":
-        return f"- Remove example '{patch['old_value']}' from {patch['parent_name']}.{patch['attribute_name']}"
-    
-    # Entity synonyms
-    elif operation == "add_entity_synonym":
-        return f"+ Add synonym '{patch['new_value']}' to {patch['parent_name']}"
-    elif operation == "update_entity_synonym":
-        return f"~ Change synonym '{patch['old_value']}' to '{patch['new_value']}' in {patch['parent_name']}"
-    elif operation == "delete_entity_synonym":
-        return f"- Remove synonym '{patch['old_value']}' from {patch['parent_name']}"
-    
-    # Relationship operations
-    elif operation == "add_relationship":
-        return f"+ Add relationship '{patch['payload']['name']}' from {patch['payload']['from']} to {patch['payload']['to']}"
-    elif operation == "update_relationship_name":
-        return f"~ Rename relationship '{patch['target_name']}' to '{patch['new_value']}'"
-    elif operation == "update_relationship_from":
-        return f"~ Change source of '{patch['target_name']}' to '{patch['new_value']}'"
-    elif operation == "update_relationship_to":
-        return f"~ Change target of '{patch['target_name']}' to '{patch['new_value']}'"
-    elif operation == "update_relationship_description":
-        return f"~ Update description of relationship '{patch['target_name']}'"
-    elif operation == "delete_relationship":
-        return f"- Delete relationship '{patch['target_name']}'"
-    
-    # Relationship attributes (similar to entity attributes)
-    elif operation == "add_relationship_attribute":
-        return f"+ Add attribute '{patch['payload']['name']}' to relationship {patch['parent_name']}"
-    elif operation == "update_relationship_attribute_name":
-        return f"~ Rename attribute '{patch['attribute_name']}' to '{patch['new_value']}' in relationship {patch['parent_name']}"
-    elif operation == "update_relationship_attribute_description":
-        return f"~ Update description of {patch['parent_name']}.{patch['attribute_name']}"
-    elif operation == "delete_relationship_attribute":
-        return f"- Remove attribute '{patch['attribute_name']}' from relationship {patch['parent_name']}"
-    
-    # Relationship attribute examples
-    elif operation == "add_relationship_attribute_example":
-        return f"+ Add example '{patch['new_value']}' to {patch['parent_name']}.{patch['attribute_name']}"
-    elif operation == "update_relationship_attribute_example":
-        return f"~ Change example '{patch['old_value']}' to '{patch['new_value']}' in {patch['parent_name']}.{patch['attribute_name']}"
-    elif operation == "delete_relationship_attribute_example":
-        return f"- Remove example '{patch['old_value']}' from {patch['parent_name']}.{patch['attribute_name']}"
-    
-    # Extraction patterns
-    elif operation == "add_extraction_pattern":
-        return f"+ Add extraction pattern for {patch['payload']['entity_type']}.{patch['payload']['attribute']}"
-    elif operation.startswith("update_extraction_pattern"):
-        field = operation.replace("update_extraction_pattern_", "")
-        return f"~ Update extraction pattern {field} to '{patch['new_value']}'"
-    elif operation == "delete_extraction_pattern":
-        return f"- Delete extraction pattern #{patch['target_name']}"
-    
-    # Key terms
-    elif operation == "add_key_term":
-        return f"+ Add key term '{patch['new_value']}'"
-    elif operation == "update_key_term":
-        return f"~ Change key term '{patch['old_value']}' to '{patch['new_value']}'"
-    elif operation == "delete_key_term":
-        return f"- Remove key term '{patch['old_value']}'"
-    
-    # Fallback
-    return f"~ Apply {operation}"

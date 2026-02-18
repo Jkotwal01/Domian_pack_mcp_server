@@ -20,10 +20,11 @@ class AgentState(TypedDict):
     updated_config: Optional[Dict[str, Any]]  # Config after patch
     
     # Output
+    reasoning: Optional[str]  # Lightweight reasoning/plan
     needs_confirmation: bool  # Whether user confirmation needed
     assistant_response: str  # Message to user
     error_message: Optional[str]  # Error details if any
-    diff_preview: Optional[str]  # Human-readable change preview
+    error_message: Optional[str]  # Error details if any
 
 
 def create_initial_state(
@@ -53,6 +54,5 @@ def create_initial_state(
         "updated_config": None,
         "needs_confirmation": False,
         "assistant_response": "",
-        "error_message": None,
-        "diff_preview": None
+        "error_message": None
     }

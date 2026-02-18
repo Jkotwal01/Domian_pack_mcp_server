@@ -1,26 +1,30 @@
 import { useState, useRef, useEffect } from 'react';
 import { useBackend } from './useBackend';
 
-export const useChat = (sessionId, mcpSessionId, initialMessages = [], onMessagesUpdate, onMcpSessionIdUpdate, onVersionCreated) => {
+export const useChat = (sessionId, domainConfigId, mcpSessionId, initialMessages = [], onMessagesUpdate, onMcpSessionIdUpdate, onVersionCreated) => {
     const [messages, setMessages] = useState(initialMessages);
     const [isTyping, setIsTyping] = useState(false);
     const [uploadingFiles, setUploadingFiles] = useState(false);
     const messagesEndRef = useRef(null);
-    const { getIntent, confirmIntent } = useBackend();
+    const { getIntent, confirmIntent, deleteSession } = useBackend();
 
-    // currentSessionId is either the passed sessionId or the one managed by the backend
-    // We prefer the backend mcpSessionId if it exists (meaning session is real/initialized)
-    const [activeId, setActiveId] = useState(mcpSessionId || sessionId);
+    // activeMcpId tracks the REAL ChatSession ID from the database
+    const [activeMcpId, setActiveMcpId] = useState(mcpSessionId);
 
     // Only reset messages when the user switches CHAT sessions (different bucket)
     useEffect(() => {
+        console.log('[useChat] Session ID changed, refreshing messages:', { sessionId, mcpSessionId });
         setMessages(initialMessages);
-    }, [sessionId]); // ONLY depends on sessionId
+        setActiveMcpId(mcpSessionId);
+    }, [sessionId]); // ONLY depend on sessionId to avoid resets during promotion
 
-    // Update active working ID when either changes, but preserve messages if it's just a promotion
+    // Sync activeMcpId if it's updated from props (without resetting messages)
     useEffect(() => {
-        setActiveId(mcpSessionId || sessionId);
-    }, [sessionId, mcpSessionId]);
+        if (mcpSessionId && mcpSessionId !== activeMcpId) {
+            console.log('[useChat] Syncing mcpSessionId:', mcpSessionId);
+            setActiveMcpId(mcpSessionId);
+        }
+    }, [mcpSessionId]);
 
     // Notify parent of message updates
     useEffect(() => {
@@ -43,76 +47,6 @@ export const useChat = (sessionId, mcpSessionId, initialMessages = [], onMessage
     const sendMessage = async (content, files = []) => {
         if (!content.trim() && files.length === 0) return;
 
-        // 1. Intercept first message if no session exists and no file is provided
-        if ((!activeId || activeId.startsWith('temp_')) && files.length === 0) {
-            const userMsg = {
-                id: Date.now(),
-                role: 'user',
-                content: content,
-                timestamp: new Date()
-            };
-            setMessages(prev => [...prev, userMsg]);
-            
-            setIsTyping(true);
-            await new Promise(resolve => setTimeout(resolve, 800)); // Simulate thinking
-            
-            const introMsg = {
-                id: Date.now() + 1,
-                role: 'assistant',
-                content: "I'm your **Domain Pack AI Assistant**. I specialize in generating and maintaining complex structures like entities, rules, and reasoning templates.\n\nTo get started, **I need you to upload your domain pack file (YAML or JSON)**. This allows me to understand your project context and provide high-quality suggestions.",
-                timestamp: new Date()
-            };
-            setMessages(prev => [...prev, introMsg]);
-            setIsTyping(false);
-            return;
-        }
-
-        // 2. Handle File Upload (Session Creation)
-        if (files.length > 0 && (!activeId || activeId.startsWith('temp_'))) {
-            setIsTyping(true);
-            try {
-                const file = files[0];
-                // We use the raw File object directly (api.js now handles FormData)
-                const result = await getIntent(content || `Initializing with ${file.name}`, null, file);
-                
-                if (!result.success) throw new Error(result.error);
-                
-                // Sync session ID
-                if (result.sessionId) {
-                    setActiveId(result.sessionId);
-                    if (onMcpSessionIdUpdate) onMcpSessionIdUpdate(result.sessionId);
-                    // Initial version created
-                    if (onVersionCreated) onVersionCreated(result.sessionId);
-                }
-
-                const aiMsg = {
-                    id: Date.now() + 1,
-                    role: 'assistant',
-                    content: `Success! I've initialized your session with \`${file.name}\`.
-
-I am now ready to help you enhance this domain pack. Here are some things you can ask:
-- *"Suggest new entities relevant to this domain"*
-- *"Check if students should have extra attributes"*
-- *"Generate extraction patterns for the Instructor entity"*`,
-                    timestamp: new Date()
-                };
-                setMessages(prev => [...prev, aiMsg]);
-            } catch (error) {
-                console.error('Initialization failed:', error);
-                const errorMsg = {
-                    id: Date.now() + 1,
-                    role: 'assistant',
-                    content: `Error: ${error.message}`,
-                    timestamp: new Date(),
-                    error: true
-                };
-                setMessages(prev => [...prev, errorMsg]);
-            } finally {
-                setIsTyping(false);
-            }
-            return;
-        }
-
         const userMsg = {
             id: Date.now(),
             role: 'user',
@@ -124,17 +58,16 @@ I am now ready to help you enhance this domain pack. Here are some things you ca
         setIsTyping(true);
 
         try {
-            // Send to backend v1 intent flow
-            const result = await getIntent(content, activeId);
+            // Use domainConfigId for intent flow (backend handles session creation/retrieval)
+            const result = await getIntent(content, domainConfigId);
 
-            if (!result.success) {
-                throw new Error(result.error);
+            if (!result.success && !result.message) {
+                throw new Error(result.error || "Failed to get response");
             }
 
-            // Sync session ID if a new one was created
-            if (result.sessionId && result.sessionId !== activeId) {
-                setActiveId(result.sessionId);
-                if (onMcpSessionIdUpdate) onMcpSessionIdUpdate(result.sessionId);
+            // Sync session ID (the real database ChatSession ID)
+            if (result.sessionId && onMcpSessionIdUpdate) {
+                onMcpSessionIdUpdate(result.sessionId);
             }
 
             // Create AI message
@@ -142,14 +75,15 @@ I am now ready to help you enhance this domain pack. Here are some things you ca
                 id: Date.now() + 1,
                 role: 'assistant',
                 content: result.message,
-                type: result.type, // 'suggestion' or 'operation'
-                operations: result.operations,
-                intentId: result.intentId,
-                sessionId: result.sessionId,
+                type: result.needs_confirmation ? 'operation' : 'suggestion',
+                operations: result.proposed_changes, // Use proposed_changes for display
+                intentId: result.intentId || 'pending', // Use 'pending' if not provided
+                diff: result.diff_preview, // Pass diff preview for rendering
                 timestamp: new Date()
             };
 
             setMessages(prev => [...prev, aiMsg]);
+            console.log('[useChat] Assistant message added to state:', aiMsg.id);
         } catch (error) {
             console.error('Error sending message:', error);
             const errorMsg = {
@@ -170,23 +104,33 @@ I am now ready to help you enhance this domain pack. Here are some things you ca
      */
     const handleConfirmIntent = async (intentId, approved) => {
         setIsTyping(true);
+        // Add a small delay for better UX
+        const userMsg = {
+            id: Date.now() + 1,
+            role: 'user',
+            content: approved ? "Yes" : "No",
+            timestamp: new Date()
+        };
+        setMessages(prev => [...prev, userMsg]);
+
         try {
-            const result = await confirmIntent(activeId, intentId, approved);
+            // Need a real database session ID to confirm
+            if (!activeMcpId) throw new Error("Chat session not initialized");
+            
+            const result = await confirmIntent(activeMcpId, intentId, approved);
             
             // Refresh versions if approved
             if (approved && onVersionCreated) {
-                onVersionCreated(activeId);
+                onVersionCreated(domainConfigId);
             }
             
             const systemMsg = {
                 id: Date.now() + 2,
                 role: 'assistant',
                 content: result.message,
-                diff: result.diff,
-                version: result.version,
+                diff: result.diff_preview || result.diff,
                 timestamp: new Date(),
-                isSystemAction: true,
-                error: !result.approved && approved // only error if they clicked approve but it failed
+                isSystemAction: true
             };
 
             setMessages(prev => [...prev, systemMsg]);
@@ -194,7 +138,7 @@ I am now ready to help you enhance this domain pack. Here are some things you ca
             const errorMsg = {
                 id: Date.now() + 2,
                 role: 'assistant',
-                content: `Error confirming intent: ${error.message}`,
+                content: `Error confirming change: ${error.message}`,
                 timestamp: new Date(),
                 error: true
             };
@@ -204,12 +148,44 @@ I am now ready to help you enhance this domain pack. Here are some things you ca
         }
     };
 
+    const deleteCurrentSession = async () => {
+        if (!activeMcpId) {
+            // If no backend session exists yet, just clear local messages
+            setMessages([]);
+            return true;
+        }
+
+        try {
+            const success = await deleteSession(activeMcpId);
+            if (success) {
+                setMessages([]);
+                if (onMcpSessionIdUpdate) {
+                    onMcpSessionIdUpdate(null);
+                }
+                setActiveMcpId(null);
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error('Error deleting session:', error);
+            // If it's a 404, it might already be gone (or wrong ID), so just clear local
+            if (error.message?.includes('404')) {
+                setMessages([]);
+                if (onMcpSessionIdUpdate) onMcpSessionIdUpdate(null);
+                setActiveMcpId(null);
+                return true;
+            }
+            return false;
+        }
+    };
+
     return {
         messages,
         isTyping,
         uploadingFiles,
         sendMessage,
         handleConfirmIntent,
+        deleteCurrentSession,
         messagesEndRef
     };
 };

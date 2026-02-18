@@ -150,11 +150,13 @@ export default function MessageBubble({ message, onConfirmIntent }) {
               </div>
             )}
 
-            {/* Proposed Intent (for operations) */}
-            {message.type === 'operation' && message.intentId && (
+            {/* Proposed Intent / Changes (Show for both operations and suggestions if data exists) */}
+            {message.operations && (
               <IntentConfirmation 
                 operations={message.operations} 
                 onConfirm={(approved) => onConfirmIntent(message.intentId, approved)}
+                readOnly={message.type === 'suggestion'}
+                disabled={message.isSystemAction} // Disable if already applied
               />
             )}
 

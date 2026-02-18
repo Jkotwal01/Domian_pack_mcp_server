@@ -133,7 +133,20 @@ def format_minimal_context(
             "key_terms": config.get("key_terms", [])
         })
     
-    # Default: return summary
+    # Info queries and general cases
+    if "info" in intent or target_name:
+        if target_name:
+            entities = get_relevant_entities(config, [target_name])
+            relationships = get_relevant_relationships(config, relationship_names=[target_name])
+            return json.dumps({
+                "target": entities[0] if entities else (relationships[0] if relationships else None),
+                "summary": {
+                    "entity_names": [e["name"] for e in config.get("entities", [])],
+                    "relationship_names": [r["name"] for r in config.get("relationships", [])]
+                }
+            }, indent=2)
+
+    # Default: return summary only
     return json.dumps({
         "entity_names": [e["name"] for e in config.get("entities", [])],
         "relationship_names": [r["name"] for r in config.get("relationships", [])]

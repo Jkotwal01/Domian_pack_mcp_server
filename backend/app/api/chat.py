@@ -129,3 +129,24 @@ async def close_session(
     """
     ChatService.close_session(db, session_id, current_user)
     return {"message": "Session closed successfully"}
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Permanently delete a chat session and its messages.
+    
+    Args:
+        session_id: Session UUID
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Success message
+    """
+    ChatService.delete_session(db, session_id, current_user)
+    return {"message": "Session and messages deleted successfully"}
