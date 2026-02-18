@@ -82,18 +82,18 @@ export default function ToolCallDisplay({ toolCall }) {
   };
 
   return (
-    <div className={`border rounded-xl overflow-hidden ${getStatusStyles()} transition-all my-2 shadow-sm`}>
+    <div className={`border rounded-xl overflow-hidden ${getStatusStyles()} transition-all my-2 shadow-sm max-w-full`}>
       {/* Tool header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-black/5 transition-colors group gap-3"
+        className="w-full px-3 py-2.5 flex items-center justify-between hover:bg-black/5 transition-colors group gap-3 min-w-0"
       >
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="flex-shrink-0 opacity-80 group-hover:opacity-100 transition-opacity">
             {getToolIcon()}
           </div>
           <div className="text-left min-w-0 flex-1">
-            <div className="font-semibold text-sm truncate pr-2">
+            <div className="font-semibold text-sm truncate pr-1">
               {toolName}
             </div>
             <div className="text-[11px] opacity-75 flex items-center gap-2 mt-0.5 min-w-0">
@@ -102,7 +102,7 @@ export default function ToolCallDisplay({ toolCall }) {
                 <span className="capitalize">{status}</span>
               </div>
               {output?.version && (
-                <span className="truncate hidden sm:inline">• Version {output.version}</span>
+                <span className="truncate hidden sm:inline">• v{output.version}</span>
               )}
             </div>
           </div>
@@ -119,13 +119,13 @@ export default function ToolCallDisplay({ toolCall }) {
 
       {/* Expanded details */}
       {isExpanded && (
-        <div className="px-3 py-3 border-t border-current/10 bg-white/50 space-y-3 text-xs">
+        <div className="px-3 py-3 border-t border-current/10 bg-white/50 space-y-3 text-xs w-full min-w-0 overflow-hidden">
           {/* Input parameters */}
           {input && (
-            <div>
-              <div className="font-semibold mb-1.5 opacity-75 uppercase tracking-wider text-[10px]">Input:</div>
-              <div className="bg-slate-900 rounded-lg overflow-hidden border border-slate-800/50">
-                <pre className="text-emerald-400 p-2.5 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed max-h-60 overflow-y-auto custom-scrollbar">
+            <div className="min-w-0">
+              <div className="font-semibold mb-1.5 opacity-75 uppercase tracking-wider text-[10px]">Input Parameters:</div>
+              <div className="bg-slate-900 rounded-lg overflow-hidden border border-slate-800/50 w-full min-w-0">
+                <pre className="text-emerald-400 p-2.5 whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed max-h-60 overflow-y-auto overflow-x-hidden custom-scrollbar">
                   {typeof input === 'string' 
                     ? input 
                     : JSON.stringify(input, null, 2)}
@@ -136,12 +136,12 @@ export default function ToolCallDisplay({ toolCall }) {
 
           {/* Output/Result */}
           {output && (
-            <div>
+            <div className="min-w-0">
               <div className="font-semibold mb-1.5 opacity-75 uppercase tracking-wider text-[10px]">
-                {status === 'error' ? 'Error Details:' : 'Result:'}
+                {status === 'error' ? 'Error Analysis:' : 'Execution Result:'}
               </div>
-               <div className="bg-slate-900 rounded-lg overflow-hidden border border-slate-800/50">
-                <pre className="text-cyan-400 p-2.5 whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed max-h-80 overflow-y-auto custom-scrollbar">
+               <div className="bg-slate-900 rounded-lg overflow-hidden border border-slate-800/50 w-full min-w-0">
+                <pre className="text-cyan-400 p-2.5 whitespace-pre-wrap break-all font-mono text-[11px] leading-relaxed max-h-80 overflow-y-auto overflow-x-hidden custom-scrollbar">
                   {typeof output === 'string' 
                     ? output 
                     : JSON.stringify(output, null, 2)}
@@ -152,9 +152,9 @@ export default function ToolCallDisplay({ toolCall }) {
 
           {/* Session info if present */}
           {output?.session_id && (
-            <div className="flex items-center gap-2 text-[11px] bg-indigo-50/80 text-indigo-700 px-2.5 py-1.5 rounded-md border border-indigo-200/60">
-              <span className="font-semibold">Session ID:</span> 
-              <code className="font-mono text-indigo-800 select-all">{output.session_id}</code>
+            <div className="flex items-center gap-2 text-[10px] bg-indigo-50/80 text-indigo-700 px-2 py-1 rounded-md border border-indigo-200/60 max-w-full overflow-hidden">
+              <span className="font-bold shrink-0">Session:</span> 
+              <code className="font-mono text-indigo-800 truncate select-all">{output.session_id}</code>
             </div>
           )}
         </div>

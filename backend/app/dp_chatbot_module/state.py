@@ -1,14 +1,15 @@
 """LangGraph state schema for domain configuration chatbot."""
-from typing import TypedDict, Optional, Dict, Any, List
+from typing import TypedDict, Optional, Dict, Any, List, Annotated
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
+from langgraph.graph.message import add_messages
 
 
 class AgentState(TypedDict):
     """State that flows through all LangGraph nodes."""
     
-    # Input
+    # Input (Refactored to unified messages list)
+    messages: Annotated[List[BaseMessage], add_messages]
     current_config: Dict[str, Any]  # Current domain config JSON
-    user_message: str  # User's natural language request
-    chat_history: List[Dict[str, str]]  # Recent conversation context
     
     # Processing
     intent: Optional[str]  # Detected operation intent
@@ -23,7 +24,6 @@ class AgentState(TypedDict):
     reasoning: Optional[str]  # Lightweight reasoning/plan
     needs_confirmation: bool  # Whether user confirmation needed
     assistant_response: str  # Message to user
-    error_message: Optional[str]  # Error details if any
     error_message: Optional[str]  # Error details if any
 
 
@@ -43,10 +43,20 @@ def create_initial_state(
     Returns:
         Initial AgentState with all fields set
     """
+    # Convert dict history to Message objects
+    messages = []
+    for msg in chat_history:
+        if msg["role"] == "user":
+            messages.append(HumanMessage(content=msg["content"]))
+        else:
+            messages.append(AIMessage(content=msg["content"]))
+            
+    # Add the current user message
+    messages.append(HumanMessage(content=user_message))
+    
     return {
+        "messages": messages,
         "current_config": domain_config,
-        "user_message": user_message,
-        "chat_history": chat_history,
         "intent": None,
         "target_entity": None,
         "proposed_patch": None,
@@ -54,5 +64,6 @@ def create_initial_state(
         "updated_config": None,
         "needs_confirmation": False,
         "assistant_response": "",
+        "reasoning": None,
         "error_message": None
     }

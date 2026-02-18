@@ -96,6 +96,13 @@ function AppContent() {
     setIsChatOpen(true);
   };
 
+  const [configUpdateTrigger, setConfigUpdateTrigger] = useState(0);
+
+  const refreshDomainConfig = () => {
+    console.log('[App] Refreshing domain configuration...');
+    setConfigUpdateTrigger(prev => prev + 1);
+  };
+
   const { 
     messages, 
     isTyping, 
@@ -119,7 +126,10 @@ function AppContent() {
         updateMcpSessionId(activeSessionId, mcpSessionId);
       }
     },
-    (mcpId) => fetchVersions(mcpId)
+    (domainId) => {
+      fetchVersions(activeSession?.mcpSessionId);
+      refreshDomainConfig(); // Trigger config refresh on any change
+    }
   );
 
   return (
@@ -154,6 +164,7 @@ function AppContent() {
                     toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
                     isChatOpen={isChatOpen}
                     onToggleChat={() => setIsChatOpen(!isChatOpen)}
+                    refreshTrigger={configUpdateTrigger}
                   />
                 </div>
                 {isChatOpen && (

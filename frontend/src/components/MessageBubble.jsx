@@ -92,46 +92,56 @@ export default function MessageBubble({ message, onConfirmIntent }) {
   };
 
   return (
-    <div
-      className={`flex w-full group ${isAi ? "justify-start" : "justify-end"}`}
-    >
-      <div
-        className={`flex max-w-[95%] sm:max-w-full md:max-w-[85%] ${isAi ? "flex-row" : "flex-row-reverse"} items-start gap-2 sm:gap-3`}
-      >
+    <div className={`flex w-full group ${isAi ? "justify-start" : "justify-end"} animate-fadeIn`}>
+      <div className={`flex max-w-[95%] sm:max-w-full md:max-w-[85%] ${isAi ? "flex-row" : "flex-row-reverse"} items-start gap-2 sm:gap-3`}>
         {/* Avatar */}
-        <div
-          className={`shrink-0 w-6 h-6 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center text-xs sm:text-sm font-semibold ${
-            isAi
-              ? "bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-md"
-              : "bg-linear-to-br from-slate-200 to-slate-300 text-slate-700"
-          }`}
-        >
+        <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-semibold transition-transform duration-300 group-hover:scale-110 ${
+            isAi ? "bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-100" : "bg-linear-to-br from-slate-700 to-slate-900 text-white shadow-lg shadow-slate-200"
+        }`}>
           {isAi ? "🤖" : "👤"}
         </div>
 
-        {/* Content */}
-        <div className={`flex flex-col ${isAi ? "items-start" : "items-end"} w-full min-w-0 max-w-full overflow-hidden`}>
-          <span className="text-[10px] sm:text-xs text-slate-500 mb-1 mx-1 font-medium">
+        {/* Content Container */}
+        <div className={`flex flex-col ${isAi ? "items-start" : "items-end"} w-full min-w-0`}>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">
             {isAi ? "Assistant" : "You"}
           </span>
 
           <div
-            className={`px-3 sm:px-5 py-3 sm:py-4 rounded-2xl text-[14px] sm:text-[15px] leading-6 sm:leading-7 shadow-sm w-full relative ${
+            className={`px-5 py-4 shadow-sm transition-all duration-300 hover:shadow-md max-w-full overflow-hidden ${
               isAi
-                ? "bg-white border border-slate-200 text-slate-800 rounded-tl-md"
-                : "bg-linear-to-br from-indigo-50 to-indigo-100 text-slate-800 border border-indigo-200 rounded-tr-md"
+                ? "bg-linear-to-br from-indigo-50/80 to-indigo-100/50 text-slate-800 border border-indigo-100 rounded-2xl rounded-tl-none shadow-[0_4px_15px_rgba(79,70,229,0.05)]"
+                : "bg-slate-900 text-white rounded-2xl rounded-tr-none shadow-lg shadow-slate-100"
             }`}
           >
+            {/* AI Reasoning / Thought Process */}
+            {isAi && message.reasoning && (
+              <div className="mb-4 p-4 bg-white/60 border border-indigo-100/50 rounded-xl relative overflow-hidden group/reasoning">
+                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400 opacity-40"></div>
+                <div className="flex items-start space-x-3">
+                  <span className="text-lg mt-0.5 filter drop-shadow-sm">💭</span>
+                  <div>
+                    <h5 className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">
+                      Thought Process
+                    </h5>
+                    <p className="text-[13px] text-indigo-700 leading-relaxed font-medium italic">
+                      {message.reasoning}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Message content */}
             {message.content && (
-              <div className="whitespace-pre-wrap font-normal prose prose-sm max-w-none wrap-break-word overflow-hidden">
+              <div className={`whitespace-pre-wrap font-normal prose prose-sm max-w-none break-words ${isAi ? "text-slate-700" : "text-slate-100"}`}>
                 {renderContent(message.content)}
               </div>
             )}
 
             {/* File attachments */}
             {message.files && message.files.length > 0 && (
-              <div className="space-y-2 mt-3 overflow-x-auto">
+              <div className="space-y-2 mt-4 overflow-x-auto">
                 {message.files.map((file, index) => (
                   <FileAttachment key={index} file={file} />
                 ))}
@@ -140,9 +150,9 @@ export default function MessageBubble({ message, onConfirmIntent }) {
 
             {/* Tool calls */}
             {message.toolCalls && message.toolCalls.length > 0 && (
-              <div className="space-y-2 mt-4 pt-4 border-t border-slate-200 overflow-x-auto">
-                <div className="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">
-                  🔧 Tool Executions ({message.toolCalls.length})
+              <div className="space-y-2 mt-4 pt-4 border-t border-indigo-100/50 overflow-x-auto">
+                <div className="text-[10px] font-black text-indigo-400 uppercase tracking-wider mb-2">
+                  🔧 System Operations ({message.toolCalls.length})
                 </div>
                 {message.toolCalls.map((toolCall, index) => (
                   <ToolCallDisplay key={index} toolCall={toolCall} />
@@ -150,34 +160,41 @@ export default function MessageBubble({ message, onConfirmIntent }) {
               </div>
             )}
 
-            {/* Proposed Intent / Changes (Show for both operations and suggestions if data exists) */}
+            {/* Proposed Intent / Changes */}
             {message.operations && (
               <IntentConfirmation 
                 operations={message.operations} 
                 onConfirm={(approved) => onConfirmIntent(message.intentId, approved)}
                 readOnly={message.type === 'suggestion'}
-                disabled={message.isSystemAction} // Disable if already applied
+                disabled={message.isSystemAction}
               />
             )}
 
-            {/* Diff Explorer (for applied actions) */}
+            {/* Diff Explorer */}
             {message.isSystemAction && message.diff && (
-              <DiffExplorer diff={message.diff} version={message.version} />
+              <div className="mt-4 pt-4 border-t border-indigo-100/30">
+                <DiffExplorer diff={message.diff} version={message.version} />
+              </div>
             )}
 
             {/* Error state */}
             {message.error && (
-              <div className="mt-2 text-xs sm:text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-2 sm:px-3 py-2">
-                ⚠️ Error: {message.content || "Something went wrong"}
+              <div className="mt-4 p-3 bg-rose-50 border border-rose-100 rounded-xl flex items-center space-x-2">
+                <span className="text-lg">⚠️</span>
+                <span className="text-[13px] text-rose-600 font-bold">{message.content || "An unexpected error occurred."}</span>
               </div>
             )}
           </div>
 
           {/* Timestamp */}
           {message.timestamp && (
-            <span className="text-[10px] sm:text-xs text-slate-400 mt-1 mx-1">
-              {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </span>
+            <div className={`flex items-center space-x-1 mt-1.5 mx-2 text-slate-400`}>
+              <span className="text-[10px] font-bold">
+                {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              {isAi && <span className="text-[8px] opacity-30">|</span>}
+              {isAi && <span className="text-[10px] font-medium opacity-50 uppercase tracking-tighter">SECURED BY DOMAIN CORE</span>}
+            </div>
           )}
         </div>
       </div>

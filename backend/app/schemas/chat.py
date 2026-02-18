@@ -53,6 +53,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     """Schema for chat response."""
     message: str
+    reasoning: Optional[str] = None
     needs_confirmation: bool = False
     proposed_changes: Optional[Dict[str, Any]] = None
     proposed_patch: Optional[Dict[str, Any]] = None # Align with state name

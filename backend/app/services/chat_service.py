@@ -181,7 +181,7 @@ class ChatService:
         
         # Convert to dict format
         chat_history = [
-            {"role": msg.role.value, "message": msg.message}
+            {"role": msg.role.value, "content": msg.message}
             for msg in recent_messages[:-1]  # Exclude the message we just added
         ]
         
@@ -235,13 +235,17 @@ class ChatService:
             chat_history=chat_history
         )
         
-        # Execute graph with monitoring
+        # Execute graph with monitoring and checkpointer config
         from langchain_community.callbacks import get_openai_callback
         from app.utils.llm_monitor import llm_monitor
         
+        # Configure thread for checkpointer
+        config = {"configurable": {"thread_id": str(session_id)}}
+        
         try:
             with get_openai_callback() as cb:
-                final_state = domain_graph.invoke(initial_state)
+                # Use thread-aware invocation
+                final_state = domain_graph.invoke(initial_state, config=config)
                 
                 # Update monitoring stats
                 llm_monitor.update_tokens(
@@ -256,11 +260,9 @@ class ChatService:
                 session.total_output_tokens += cb.completion_tokens
                 db.commit()
                 
-                print(f"📊 Session Stats Updated: Calls={session.total_llm_calls}, Tokens={session.total_input_tokens + session.total_output_tokens}")
+                print(f"📊 Session {session_id} Stats Updated: Calls={session.total_llm_calls}, Tokens={session.total_input_tokens + session.total_output_tokens}")
         except Exception as e:
             print(f"Error during graph execution or monitoring: {e}")
-            # Fallback to normal execution if monitoring fails (though invoke already happened)
-            # Actually if it failed here, final_state might not be defined
             raise e
         
         # Save assistant response
@@ -283,6 +285,7 @@ class ChatService:
         # Prepare response
         response = ChatResponse(
             message=final_state["assistant_response"],
+            reasoning=final_state.get("reasoning"),
             needs_confirmation=final_state.get("needs_confirmation", False),
             proposed_changes=final_state.get("proposed_patch"),
             proposed_patch=final_state.get("proposed_patch"),

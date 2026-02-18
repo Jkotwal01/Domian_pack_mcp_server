@@ -75,6 +75,7 @@ export const useChat = (sessionId, domainConfigId, mcpSessionId, initialMessages
                 id: Date.now() + 1,
                 role: 'assistant',
                 content: result.message,
+                reasoning: result.reasoning, // Capture the reasoning field
                 type: result.needs_confirmation ? 'operation' : 'suggestion',
                 operations: result.proposed_changes, // Use proposed_changes for display
                 intentId: result.intentId || 'pending', // Use 'pending' if not provided
@@ -83,6 +84,13 @@ export const useChat = (sessionId, domainConfigId, mcpSessionId, initialMessages
             };
 
             setMessages(prev => [...prev, aiMsg]);
+            
+            // Trigger refresh if changes were auto-applied
+            if (result.updated_config && onVersionCreated) {
+                console.log('[useChat] Auto-applied changes detected, triggering refresh');
+                onVersionCreated(domainConfigId);
+            }
+            
             console.log('[useChat] Assistant message added to state:', aiMsg.id);
         } catch (error) {
             console.error('Error sending message:', error);

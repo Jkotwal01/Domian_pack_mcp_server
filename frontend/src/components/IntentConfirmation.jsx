@@ -22,41 +22,49 @@ export default function IntentConfirmation({ operations, onConfirm, disabled, re
         </span>
       </div>
       
-      <div className="p-0 divide-y divide-slate-50">
-        <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+      <div className="p-0 divide-y divide-slate-50 max-w-full">
+        <div className="max-h-[400px] overflow-y-auto custom-scrollbar w-full">
           {patchList.map((op, i) => (
-            <div key={i} className="p-5 hover:bg-slate-50/50 transition-colors">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xs ${
+            <div key={i} className="p-5 hover:bg-slate-50/50 transition-colors w-full min-w-0">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center space-x-2 min-w-0">
+                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider shadow-xs flex-shrink-0 ${
                     op.type?.startsWith('add') ? 'bg-emerald-500 text-white' : 
                     op.type?.startsWith('delete') ? 'bg-rose-500 text-white' : 'bg-indigo-500 text-white'
                   }`}>
                     {op.type?.replace(/_/g, ' ')}
                   </span>
-                  {op.target_name && (
-                    <span className="text-[11px] font-bold text-slate-700 truncate max-w-[150px]">
-                      {op.target_name}
-                    </span>
-                  )}
-                  {op.parent_name && (
-                    <span className="text-[10px] text-slate-400">in {op.parent_name}</span>
-                  )}
+                  <div className="flex items-center space-x-1 min-w-0 overflow-hidden text-[11px]">
+                    {op.target_name && (
+                      <span className="font-bold text-slate-700 truncate">
+                        {op.target_name}
+                      </span>
+                    )}
+                    {op.attribute_name && (
+                      <>
+                        <span className="text-slate-400">→</span>
+                        <span className="font-bold text-indigo-600 truncate">{op.attribute_name}</span>
+                      </>
+                    )}
+                    {op.parent_name && (
+                      <span className="text-slate-400 truncate ml-1 text-[10px]">in {op.parent_name}</span>
+                    )}
+                  </div>
                 </div>
               </div>
               
               {op.payload && (
-                <div className="rounded-lg overflow-hidden border border-slate-200/60 bg-slate-900 shadow-inner group relative">
-                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="rounded-lg overflow-hidden border border-slate-200/60 bg-slate-900 shadow-inner group relative w-full min-w-0">
+                  <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                     <button 
                       onClick={() => navigator.clipboard.writeText(JSON.stringify(op.payload, null, 2))}
                       className="text-[9px] bg-slate-800 text-slate-400 hover:text-white px-2 py-1 rounded border border-slate-700 transition-colors"
                     >
-                      COPY PAYLOAD
+                      COPY
                     </button>
                   </div>
-                  <pre className="p-4 text-[11px] leading-relaxed font-mono overflow-x-auto text-indigo-200">
-                    <code className="text-emerald-400">
+                  <pre className="p-4 text-[11px] leading-relaxed font-mono overflow-x-auto custom-scrollbar text-indigo-200 max-h-80">
+                    <code className="text-emerald-400 block break-all whitespace-pre">
                       {JSON.stringify(op.payload, null, 2)}
                     </code>
                   </pre>
@@ -64,9 +72,31 @@ export default function IntentConfirmation({ operations, onConfirm, disabled, re
               )}
 
               {!op.payload && (op.new_value !== undefined) && (
-                <div className="p-3 bg-indigo-50/50 rounded-lg border border-indigo-100 flex items-center justify-between">
-                   <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Update Value</span>
-                   <span className="text-[13px] font-mono text-indigo-700 font-bold">{String(op.new_value)}</span>
+                <div className="space-y-2">
+                  {op.old_value !== undefined && op.old_value !== null && (
+                    <div className="p-3 bg-slate-50 rounded-lg border border-slate-100 flex items-center justify-between opacity-60 grayscale-[0.5]">
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">Current Value</span>
+                      <span className="text-[12px] font-mono text-slate-500 line-through">{String(op.old_value)}</span>
+                    </div>
+                  )}
+                  <div className={`p-3 rounded-lg border flex items-center justify-between ${
+                    op.type?.startsWith('delete') ? 'bg-rose-50 border-rose-100' : 'bg-indigo-50/50 border-indigo-100'
+                  }`}>
+                    <span className={`text-[10px] font-bold uppercase tracking-widest ${
+                      op.type?.startsWith('delete') ? 'text-rose-400' : 'text-indigo-400'
+                    }`}>
+                      {op.type?.includes('synonym') ? 'Synonym' : 
+                       op.type?.includes('description') ? 'Description' : 
+                       op.type?.includes('name') ? 'Name' : 
+                       op.type?.includes('type') ? 'Type' : 
+                       op.type?.includes('example') ? 'Example' : 'Proposed Value'}
+                    </span>
+                    <span className={`text-[13px] font-mono font-bold ${
+                      op.type?.startsWith('delete') ? 'text-rose-600' : 'text-indigo-700'
+                    }`}>
+                      {String(op.new_value)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

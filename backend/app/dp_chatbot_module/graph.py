@@ -1,5 +1,6 @@
 """LangGraph workflow for domain configuration chatbot."""
 from langgraph.graph import StateGraph, END
+from langgraph.checkpoint.memory import InMemorySaver
 from app.dp_chatbot_module.state import AgentState
 from app.dp_chatbot_module.nodes import (
     classify_intent_node,
@@ -24,6 +25,19 @@ def route_after_validation(state: AgentState) -> str:
     return "prepare_confirmation"
 
 
+def route_after_intent(state: AgentState) -> str:
+    """Route to patching logic or directly to response for info_query."""
+    intent = state.get("intent")
+    if intent == "info_query":
+        return "generate_response"
+    elif intent == "general_query":
+        return "general_knowledge"
+    return "generate_patch"
+
+
+# Checkpointer for state persistence
+checkpointer = InMemorySaver()
+
 # Build the workflow graph
 workflow = StateGraph(AgentState)
 
@@ -38,15 +52,6 @@ workflow.add_node("general_knowledge", general_knowledge_node)
 
 # Define the flow
 workflow.set_entry_point("classify_intent")
-
-def route_after_intent(state: AgentState) -> str:
-    """Route to patching logic or directly to response for info_query."""
-    intent = state.get("intent")
-    if intent == "info_query":
-        return "generate_response"
-    elif intent == "general_query":
-        return "general_knowledge"
-    return "generate_patch"
 
 workflow.add_conditional_edges(
     "classify_intent",
@@ -75,5 +80,5 @@ workflow.add_edge("prepare_confirmation", "generate_response")
 workflow.add_edge("generate_response", END)
 workflow.add_edge("general_knowledge", END)
 
-# Compile the graph
-domain_graph = workflow.compile()
+# Compile the graph with checkpointer
+domain_graph = workflow.compile(checkpointer=checkpointer)

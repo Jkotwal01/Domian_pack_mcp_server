@@ -58,7 +58,7 @@ const StepIndicator = ({ currentStep }) => {
   );
 };
 
-export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onToggleChat }) {
+export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onToggleChat, refreshTrigger = 0 }) {
   const navigate = useNavigate();
   const { domainId } = useParams();
   const { logout } = useAuth();
@@ -128,7 +128,7 @@ export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onTog
     };
 
     fetchDomainSession();
-  }, [domainId]);
+  }, [domainId, refreshTrigger]); // Add refreshTrigger to sync
 
   // Fetch domain data
   useEffect(() => {
@@ -166,7 +166,7 @@ export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onTog
     };
 
     fetchDomainData();
-  }, [domainId]);
+  }, [domainId, refreshTrigger]); // Add refreshTrigger to sync
 
   // Save YAML content
   const handleSaveYAML = async () => {

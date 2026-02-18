@@ -27,6 +27,9 @@ def classify_intent_node(state: AgentState) -> AgentState:
         
     llm = get_llm(temperature=0)
     
+    # Extract the user's latest message
+    user_msg = state["messages"][-1].content
+    
     # Limit context size for classification
     entities = state["current_config"].get("entities", [])
     relationships = state["current_config"].get("relationships", [])
@@ -45,7 +48,7 @@ def classify_intent_node(state: AgentState) -> AgentState:
     
     prompt = INTENT_CLASSIFICATION_PROMPT.format(
         context=context,
-        user_message=state["user_message"]
+        user_message=user_msg
     )
     
     # Retry logic
@@ -86,10 +89,16 @@ def generate_patch_node(state: AgentState) -> AgentState:
     # Get relevant context slice
     relevant_context = get_relevant_context(state)
     
+    # Implement recent 5 messages logic for CoT/Generation
+    # LangGraph standard: messages[-1] is current HumanMessage
+    # messages[-5:] gives the most recent window
+    recent_messages = state["messages"][-5:]
+    messages_str = "\n".join([f"{msg.type}: {msg.content}" for msg in recent_messages])
+    
     prompt = PATCH_GENERATION_PROMPT.format(
         intent=state["intent"],
         context=relevant_context,
-        user_message=state["user_message"]
+        user_message=messages_str # Use the contextual window for CoT
     )
     
     # Retry logic
@@ -98,7 +107,11 @@ def generate_patch_node(state: AgentState) -> AgentState:
         try:
             patch_list = structured_llm.invoke(prompt)
             # Store in state
-            return {**state, "proposed_patch": patch_list.dict()}
+            return {
+                **state, 
+                "proposed_patch": patch_list.dict(),
+                "reasoning": patch_list.reasoning
+            }
         except Exception as e:
             if attempt == max_retries - 1:
                 return {**state, "error_message": f"Failed to generate patch after {max_retries} attempts: {str(e)}"}
@@ -182,13 +195,15 @@ def generate_response_node(state: AgentState) -> AgentState:
     """
     Generate final assistant response.
     """
+    user_msg = state["messages"][-1].content
+    
     if state.get("error_message"):
         # Use LLM to explain error in friendly way
         try:
             llm = get_llm(temperature=0)
             prompt = ERROR_EXPLANATION_PROMPT.format(
                 error_message=state["error_message"],
-                user_message=state["user_message"]
+                user_message=user_msg
             )
             response = llm.invoke(prompt)
             friendly_error = response.content.strip()
@@ -204,23 +219,28 @@ def generate_response_node(state: AgentState) -> AgentState:
             
             # Use context slicer to get minimal relevant info
             context_str = get_relevant_context(state)
+            
+            # Use recent window for context
+            recent_messages = state["messages"][-5:]
+            messages_str = "\n".join([f"{msg.type}: {msg.content}" for msg in recent_messages])
                 
             prompt = INFO_QUERY_PROMPT.format(
                 context=context_str,
-                user_message=state["user_message"]
+                user_message=messages_str
             )
             response = llm.invoke(prompt)
             return {**state, "assistant_response": response.content.strip()}
         except Exception as e:
             return {**state, "assistant_response": f"❌ Failed to answer query: {str(e)}"}
-
+    
     if state["needs_confirmation"]:
         response = "I've analyzed your request and prepared the following changes. Please review the detailed patch payload below."
         return {**state, "assistant_response": response}
     
     # Check if there was a patch that was automatically applied
     if state.get("proposed_patch") and state.get("updated_config"):
-        return {**state, "assistant_response": "✅ Changes applied successfully! You can see the details below."}
+        response = "✅ Changes applied successfully! You can see the details below."
+        return {**state, "assistant_response": response}
     
     # Should not reach here in normal flow
     response = "✅ Operation completed successfully!"
@@ -239,10 +259,11 @@ def general_knowledge_node(state: AgentState) -> AgentState:
             with open(kb_path, "r", encoding="utf-8") as f:
                 kb_content = f.read()
         
+        user_msg = state["messages"][-1].content
         llm = get_llm(temperature=0)
         prompt = GENERAL_KNOWLEDGE_PROMPT.format(
             context=kb_content or "No additional documentation available.",
-            user_message=state["user_message"]
+            user_message=user_msg
         )
         response = llm.invoke(prompt)
         return {**state, "assistant_response": response.content.strip()}
@@ -264,10 +285,12 @@ def get_relevant_context(state: AgentState) -> str:
     
     intent = state["intent"]
     config = state["current_config"]
-    user_message = state["user_message"]
+    
+    # Extract the user's latest message
+    user_msg = state["messages"][-1].content
     
     # Try to extract target name from user message
-    target_name = extract_target_from_message(user_message, config)
+    target_name = extract_target_from_message(user_msg, config)
     
     # Use context slicer to get minimal context
     return format_minimal_context(config, intent, target_name)
