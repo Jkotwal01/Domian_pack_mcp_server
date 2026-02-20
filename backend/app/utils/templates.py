@@ -1,12 +1,16 @@
 """Base domain configuration template."""
-from typing import Dict, Any
-from openai import AsyncOpenAI
 import json
 import os
 import asyncio
 import logging
 import traceback
+import re
+import ast
+from typing import Dict, Any, List, Optional, Any
 from dotenv import load_dotenv
+from app.config import settings
+from pydantic import BaseModel, Field
+from typing import List, Optional, Any
 
 # Set up logging
 logger = logging.getLogger("uvicorn.error")
@@ -14,211 +18,150 @@ llm_call_count = 0
 
 # Load environment variables
 load_dotenv()
+class Attribute(BaseModel):
+    name: str = Field(..., description="Attribute name (e.g. 'title')")
+    description: str = Field(..., description="Description")
+    examples: List[str] = Field(default_factory=list, description="Examples")
 
-# Initialize OpenAI client
-client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+class Entity(BaseModel):
+    name: str = Field(..., description="PascalCase name")
+    type: str = Field(..., description="UPPERCASE_SNAKE_CASE type")
+    description: str = Field(..., description="Description")
+    attributes: List[Attribute] = Field(default_factory=list)
+    synonyms: List[str] = Field(default_factory=list)
 
-# JSON Schema strictly following your template
-DOMAIN_SCHEMA = {
-    "name": "domain_config",
-    "schema": {
-        "type": "object",
-        "additionalProperties": False,
-        "required": [
-            "name",
-            "description",
-            "version",
-            "entities",
-            "relationships",
-            "extraction_patterns",
-            "key_terms"
-        ],
-        "properties": {
-            "name": {"type": "string"},
-            "description": {"type": "string"},
-            "version": {"type": "string"},
-            "entities": {
-                "type": "array",
-                "minItems": 2,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["name", "type", "description", "attributes", "synonyms"],
-                    "properties": {
-                        "name": {"type": "string"},
-                        "type": {"type": "string"},
-                        "description": {"type": "string"},
-                        "attributes": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "required": ["name", "description", "examples"],
-                                "properties": {
-                                    "name": {"type": "string"},
-                                    "description": {"type": "string"},
-                                    "examples": {
-                                        "type": "array",
-                                        "minItems": 1,
-                                        "items": {"type": "string"}
-                                    }
-                                }
-                            }
-                        },
-                        "synonyms": {
-                            "type": "array",
-                            "minItems": 1,
-                            "items": {"type": "string"}
-                        }
-                    }
-                }
-            },
-            "relationships": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": ["name", "from", "to", "description", "attributes"],
-                    "properties": {
-                        "name": {"type": "string"},
-                        "from": {"type": "string"},
-                        "to": {"type": "string"},
-                        "description": {"type": "string"},
-                        "attributes": {
-                            "type": "array",
-                            "items": {
-                                "type": "object",
-                                "additionalProperties": False,
-                                "required": ["name", "description", "examples"],
-                                "properties": {
-                                    "name": {"type": "string"},
-                                    "description": {"type": "string"},
-                                    "examples": {
-                                        "type": "array",
-                                        "items": {"type": "string"}
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            "extraction_patterns": {
-                "type": "array",
-                "minItems": 2,
-                "items": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "required": [
-                        "pattern",
-                        "entity_type",
-                        "attribute",
-                        "extract_full_match",
-                        "confidence"
-                    ],
-                    "properties": {
-                        "pattern": {"type": "string"},
-                        "entity_type": {"type": "string"},
-                        "attribute": {"type": "string"},
-                        "extract_full_match": {"type": "boolean"},
-                        "confidence": {"type": "number"}
-                    }
-                }
-            },
-            "key_terms": {
-                "type": "array",
-                "minItems": 3,
-                "items": {"type": "string"}
-            }
-        }
-    },
-    "strict": True
-}
+class RelationshipAttribute(BaseModel):
+    name: str = Field(..., description="Attribute name")
+    description: str = Field(..., description="Description")
+    examples: List[str] = Field(default_factory=list)
 
-async def generate_domain_template(domain_name: str, description: str) -> Dict[str, Any]:
+class Relationship(BaseModel):
+    name: str = Field(..., description="UPPERCASE_SNAKE_CASE name")
+    from_entity: str = Field(..., alias="from", description="Source entity")
+    to: str = Field(..., description="Target entity")
+    description: str = Field(..., description="Description")
+    attributes: List[RelationshipAttribute] = Field(default_factory=list)
+
+class ExtractionPattern(BaseModel):
+    pattern: str = Field(..., description="Regex")
+    entity_type: str = Field(..., description="Target entity name")
+    attribute: str = Field(..., description="Attribute name")
+    extract_full_match: bool = Field(default=True)
+    confidence: float = Field(default=0.8)
+
+class DomainConfig(BaseModel):
+    """Structured domain configuration."""
+    name: str = Field(..., description="Domain name")
+    description: str = Field(..., description="Description")
+    version: str = Field(default="1.0.0")
+    entities: List[Entity] = Field(default_factory=list)
+    relationships: List[Relationship] = Field(default_factory=list)
+    extraction_patterns: List[ExtractionPattern] = Field(default_factory=list)
+    key_terms: List[str] = Field(default_factory=list)
+
+async def generate_domain_template(
+    domain_name: str, 
+    description: str, 
+    retriever: Any = None
+) -> Dict[str, Any]:
     """
-    Generate a domain template using OpenAI with strict schema enforcement.
+    Generate a domain template using the configured LLM with structured output.
     Falls back to a hardcoded base template on error.
+    
+    If a retriever is provided, it uses RAG to augment the context.
     """
+    from app.utils.llm_factory import get_llm
     global llm_call_count
     llm_call_count += 1
     
-    try:
-        # Use beta.chat.completions.parse for structured output
-        response = await client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
-            temperature=0.2,
-            response_format={
-                "type": "json_schema",
-                "json_schema": DOMAIN_SCHEMA    
-            },
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are a domain modeling assistant. "
-                               "Generate a structured domain configuration strictly following the schema."
-                },
-                {
-                    "role": "user",
-                    "content": f"""
-                        Domain Name: {domain_name}
-                        Description: {description}
+    # Augment description with RAG if retriever is available
+    rag_context = ""
+    if retriever:
+        try:
+            # Query the retriever for entities, relationships and patterns
+            docs = retriever.invoke(f"entities, relationships, and extraction patterns for {domain_name} in the context of {description}")
+            rag_context = "\n".join([doc.page_content for doc in docs])
+            logger.info(f"Retrieved {len(docs)} documents for RAG context")
+        except Exception as rag_err:
+            logger.error(f"RAG retrieval failed: {str(rag_err)}")
+            rag_context = ""
 
-                        Requirements:
-                        - At least 2–3 entities
-                        - At least 1 relationship between entities
-                        - At least 2 regex-based extraction patterns
-                        - At least 3 key terms
-                        - For each entity/relationship attribute, provide 2-3 realistic 'examples' as a list of strings
-                        - Use realistic entity types (DOCUMENT, PERSON, ORGANIZATION, EVENT, LOCATION, SYSTEM)
-                        - For entity 'name' use capitalized words (e.g., 'Numeric Value')
-                        - For entity 'type' use uppercase with underscores (e.g., 'NUMERIC_VALUE')
+    try:
+        prompt_content = f"""
+                        Domain Name: {domain_name}
+                        User Description: {description}
                         """
-                }
-            ]
-        )
-        # for Tokens Analysis
-        logger.info(f"Token Usage: Input={response.usage.prompt_tokens}, "
-            f"Output={response.usage.completion_tokens}, "
-            f"Total={response.usage.total_tokens}")
-        # Access the structured output via .parsed
-        logger.info(f"OpenAI API - \"POST /v1/chat/completions HTTP/1.1\" 200 OK (Call count: {llm_call_count})")
         
-        if response.choices[0].message.refusal:
-            logger.warning(f"Model refused to generate: {response.choices[0].message.refusal}")
-            return get_base_template(domain_name, description)
+        if rag_context:
+            prompt_content += f"\n\nContext from associated PDF:\n{rag_context}"
+
+        prompt_content += """
+                        Requirements:
+                        - Entity 'name' must be in PascalCase (e.g., 'MedicalRecord').
+                        - Entity 'type' must be in UPPERCASE_SNAKE_CASE (e.g., 'MEDICAL_RECORD').
+                        - Generate at least 2 entities and 1 relationship.
+                        - Use realistic entity categories: DOCUMENT, PERSON, ORGANIZATION, EVENT, LOCATION, SYSTEM.
+                        """
+
+        # Get configured LLM
+        llm = get_llm(temperature=0.1)
+        is_groq = settings.LLM_PROVIDER.lower() == "groq"
+        
+        if is_groq:
+            # For Groq, manual JSON mode is often more robust for complex schemas
+            system_msg = (
+                "You are a domain modeling assistant. Generate a structured domain configuration as a single JSON object. "
+                "STRICT NAMING REQUIREMENTS: Entity 'name' = PascalCase, Entity 'type' = UPPERCASE_SNAKE_CASE. "
+                "Output MUST be ONLY the valid JSON object matching the provided structure."
+            )
             
-        parsed_data = response.choices[0].message.parsed
-        if parsed_data is None:
-            raw_content = response.choices[0].message.content
-            logger.warning("Model returned successful response but parsed data is None (validation failed)")
-            logger.warning(f"Raw content: {raw_content}")
+            # Use the base template as a clear schema indicator in the prompt
+            schema_json = json.dumps(get_base_template("DomainName", "Description"), indent=2)
+            user_msg = f"{prompt_content}\n\nOutput MUST strictly follow this JSON structure:\n{schema_json}"
             
-            # Fallback to manual parsing if possible
-            if raw_content:
+            messages = [("system", system_msg), ("user", user_msg)]
+            logger.info(f"Generating template using {settings.LLM_PROVIDER} with manual JSON recovery mode")
+            
+            response = await llm.ainvoke(messages)
+            content = response.content if hasattr(response, "content") else str(response)
+            
+            # Extract JSON from potential markdown blocks or text
+            json_match = re.search(r'(\{.*\})', content, re.DOTALL)
+            if json_match:
                 try:
-                    # Clean the content if it contains markdown markers
-                    cleaned_content = raw_content
-                    if "```json" in cleaned_content:
-                        cleaned_content = cleaned_content.split("```json")[1].split("```")[0].strip()
-                    elif "```" in cleaned_content:
-                        cleaned_content = cleaned_content.split("```")[1].split("```")[0].strip()
-                    
-                    parsed_data = json.loads(cleaned_content)
-                    logger.info("Successfully recovered data via manual JSON parsing")
+                    parsed_data = json.loads(json_match.group(1))
+                    logger.info("✅ Successfully generated domain template using Groq (manual JSON mode)")
                     return parsed_data
                 except Exception as parse_err:
-                    logger.error(f"Manual parsing also failed: {str(parse_err)}")
+                    logger.error(f"Failed to parse JSON from Groq response: {str(parse_err)}")
             
+            logger.warning("Could not find or parse JSON in Groq response - falling back")
             return get_base_template(domain_name, description)
+
+        else:
+            # Use LangChain's structured output for OpenAI
+            structured_llm = llm.with_structured_output(DomainConfig)
+            messages = [
+                (
+                    "system", 
+                    "You are a domain modeling assistant. Generate a structured domain configuration strictly following the schema. "
+                    "STRICT NAMING REQUIREMENTS: Entity 'name' = PascalCase, Entity 'type' = UPPERCASE_SNAKE_CASE."
+                ),
+                ("user", prompt_content)
+            ]
             
-        return parsed_data
+            logger.info(f"Generating template using {settings.LLM_PROVIDER} with structured output")
+            parsed_data = await structured_llm.ainvoke(messages)
+            
+            if not parsed_data:
+                return get_base_template(domain_name, description)
+                
+            logger.info(f"Successfully generated domain template using {settings.LLM_PROVIDER}")
+            return parsed_data.model_dump(by_alias=True) if hasattr(parsed_data, "model_dump") else parsed_data
+
     except Exception as e:
         logger.error(f"AI Template Generation Error: {str(e)}")
-        logger.error(f"Traceback: {traceback.format_exc()}")
-        logger.info(f"OpenAI API - \"POST /v1/chat/completions HTTP/1.1\" 500 Internal Server Error (Fallback to base template)")
+        logger.info("Falling back to hardcoded base template due to error")
         return get_base_template(domain_name, description)
 
 def get_base_template(name: str = "New Domain", description: str = "") -> Dict[str, Any]:

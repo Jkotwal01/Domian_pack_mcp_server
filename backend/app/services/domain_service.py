@@ -13,7 +13,13 @@ class DomainService:
     """Service for domain configuration operations."""
     
     @staticmethod
-    async def create_domain(db: Session, domain_data: DomainConfigCreate, user: User) -> DomainConfig:
+    async def create_domain(
+        db: Session, 
+        domain_data: DomainConfigCreate, 
+        user: User,
+        pdf_file: bytes = None,
+        filename: str = None
+    ) -> DomainConfig:
         """
         Create a new domain configuration with AI-generated template (or fallback).
         
@@ -21,14 +27,33 @@ class DomainService:
             db: Database session
             domain_data: Domain creation data
             user: Owner user
+            pdf_file: Optional PDF file bytes for context
+            filename: Optional filename of the PDF
             
         Returns:
             Created domain configuration
         """
+        from app.utils.rag_manager import ingest_pdf, _get_retriever
+        import uuid
+        
+        # Temporary thread ID for generation session if not provided
+        # In a real app, this might be linked to a chat session
+        gen_thread_id = str(uuid.uuid4())
+        
+        retriever = None
+        if pdf_file:
+            try:
+                ingest_pdf(pdf_file, gen_thread_id, filename)
+                retriever = _get_retriever(gen_thread_id)
+            except Exception as e:
+                import logging
+                logging.getLogger("uvicorn.error").error(f"Failed to ingest PDF for domain creation: {str(e)}")
+
         # Create domain config with AI template or fallback
         config_json = await generate_domain_template(
             domain_name=domain_data.name,
-            description=domain_data.description or ""
+            description=domain_data.description or "",
+            retriever=retriever
         )
         
         db_domain = DomainConfig(

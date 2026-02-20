@@ -49,6 +49,10 @@ async function apiFetch(endpoint, options = {}) {
     ...options.headers,
   };
 
+  if (headers['Content-Type'] === undefined) {
+    delete headers['Content-Type'];
+  }
+
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
@@ -107,10 +111,18 @@ export function logout() {
 /**
  * DOMAINS (Replaces Sessions)
  */
-export async function createDomain(name, description, version = '1.0.0') {
+export async function createDomain(name, description, version = '1.0.0', pdfFile = null) {
+  const formData = new FormData();
+  formData.append('name', name);
+  if (description) formData.append('description', description);
+  formData.append('version', version);
+  if (pdfFile) formData.append('pdf_file', pdfFile);
+
   return apiFetch('/domains', {
     method: 'POST',
-    body: JSON.stringify({ name, description, version })
+    // When using FormData, let the browser set the Content-Type with boundary
+    headers: { 'Content-Type': undefined },
+    body: formData
   });
 }
 

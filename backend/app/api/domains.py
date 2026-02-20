@@ -1,5 +1,5 @@
 """Domain configuration API endpoints."""
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, File, UploadFile, Form
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
@@ -24,36 +24,43 @@ async def list_domains(
 ):
     """
     Get all domains owned by the current user.
-    
-    Args:
-        current_user: Current authenticated user
-        db: Database session
-        
-    Returns:
-        List of domain configurations (without full config_json)
     """
     domains = DomainService.get_user_domains(db, current_user)
     return domains
 
-
 @router.post("", response_model=DomainConfigResponse, status_code=status.HTTP_201_CREATED)
 async def create_domain(
-    domain_data: DomainConfigCreate,
+    name: str = Form(...),
+    description: str = Form(None),
+    version: str = Form("1.0.0"),
+    pdf_file: UploadFile = File(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """
     Create a new domain configuration with base template.
-    
-    Args:
-        domain_data: Domain creation data
-        current_user: Current authenticated user
-        db: Database session
-        
-    Returns:
-        Created domain configuration
+    Supports optional PDF upload for context.
     """
-    domain = await DomainService.create_domain(db, domain_data, current_user)
+    # Create domain_data schema from form fields
+    domain_data = DomainConfigCreate(
+        name=name,
+        description=description,
+        version=version
+    )
+    
+    pdf_bytes = None
+    filename = None
+    if pdf_file:
+        pdf_bytes = await pdf_file.read()
+        filename = pdf_file.filename
+        
+    domain = await DomainService.create_domain(
+        db, 
+        domain_data, 
+        current_user,
+        pdf_file=pdf_bytes,
+        filename=filename
+    )
     return domain
 
 

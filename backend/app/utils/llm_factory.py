@@ -18,6 +18,8 @@ def get_llm(model: str = None, temperature: float = 0):
     
     if provider == "groq":
         model_name = model or settings.GROQ_MODEL
+        if not settings.GROQ_API_KEY:
+             raise ValueError("GROQ_API_KEY is not set in environment")
         return ChatGroq(
             model=model_name,
             temperature=temperature,
@@ -26,6 +28,8 @@ def get_llm(model: str = None, temperature: float = 0):
     else:
         # Default to OpenAI
         model_name = model or settings.OPENAI_MODEL
+        if not settings.OPENAI_API_KEY:
+             raise ValueError("OPENAI_API_KEY is not set in environment")
         return ChatOpenAI(
             model=model_name,
             temperature=temperature,

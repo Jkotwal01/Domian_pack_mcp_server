@@ -17,7 +17,8 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    version: '1.0.0'
+    version: '1.0.0',
+    pdfFile: null
   });
 
   useEffect(() => {
@@ -61,7 +62,12 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
         const newDomain = createMockDomain(formData.name, formData.description, formData.version);
         navigate(`/configview/${newDomain.id}`);
       } else {
-        const newDomain = await createDomain(formData.name, formData.description);
+        const newDomain = await createDomain(
+          formData.name, 
+          formData.description, 
+          formData.version,
+          formData.pdfFile
+        );
         navigate(`/configview/${newDomain.id}`);
       }
       setShowMetadataForm(false);
@@ -71,6 +77,32 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
       setIsCreating(false);
     }
   };
+
+  // Rest of the file...
+  // In the form:
+  /*
+  <div className="space-y-3">
+    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Knowledge Source (PDF)</label>
+    <div className="relative group">
+      <input 
+        type="file" 
+        accept=".pdf"
+        className="hidden" 
+        id="pdf-upload"
+        onChange={(e) => setFormData({...formData, pdfFile: e.target.files[0]})}
+      />
+      <label 
+        htmlFor="pdf-upload"
+        className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white hover:border-blue-500/50 transition-all"
+      >
+        <span className="text-sm font-medium text-slate-600 truncate">
+          {formData.pdfFile ? formData.pdfFile.name : 'Enhance with PDF Knowledge (Optional)'}
+        </span>
+        <span className="text-xl">📄</span>
+      </label>
+    </div>
+  </div>
+  */
 
   const handleDeleteDomain = async (e, domainId) => {
     e.stopPropagation(); // Prevent selecting the card
@@ -255,21 +287,12 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
                         <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg border border-purple-100 shadow-sm">
                           {session.relationship_count || 0} Relationships
                         </span>
-                      </div>
-                      
-                      <div className="pt-2">
-                        <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center mb-2">LLM Consumption</h4>
-                        <div className="flex flex-wrap gap-2 justify-center">
-                          <span className="px-3 py-1 bg-slate-50 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200 shadow-sm flex items-center">
-                            <span className="mr-1">🤖</span> {session.total_llm_calls || 0} Calls
-                          </span>
-                          <span className="px-3 py-1 bg-amber-50 text-amber-700 text-[10px] font-bold rounded-lg border border-amber-100 shadow-sm flex items-center">
-                            <span className="mr-1">📥</span> {session.total_input_tokens || 0} In
-                          </span>
-                          <span className="px-3 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-lg border border-emerald-100 shadow-sm flex items-center">
-                            <span className="mr-1">📤</span> {session.total_output_tokens || 0} Out
-                          </span>
-                        </div>
+                        <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100 shadow-sm">
+                          {session.key_term_count || 0} Terms
+                        </span>
+                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-lg border border-emerald-100 shadow-sm">
+                          {session.extraction_pattern_count || 0} Patterns
+                        </span>
                       </div>
                     </div>
                 </div>
@@ -340,6 +363,30 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
                   onChange={(e) => setFormData({...formData, version: e.target.value})}
                 />
               </div>
+
+              {/* PDF Knowledge Source Field */}
+              <div className="space-y-3">
+                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Knowledge Source (PDF)</label>
+                <div className="relative group">
+                  <input 
+                    type="file" 
+                    accept=".pdf"
+                    className="hidden" 
+                    id="pdf-upload"
+                    onChange={(e) => setFormData({...formData, pdfFile: e.target.files[0]})}
+                  />
+                  <label 
+                    htmlFor="pdf-upload"
+                    className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white hover:border-blue-500/50 transition-all"
+                  >
+                    <span className="text-sm font-medium text-slate-600 truncate">
+                      {formData.pdfFile ? formData.pdfFile.name : 'Enhance with PDF Knowledge (Optional)'}
+                    </span>
+                    <span className="text-xl">📄</span>
+                  </label>
+                </div>
+              </div>
+
               <div className="flex items-center space-x-4 pt-4">
                 <button 
                   type="button"

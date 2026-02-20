@@ -18,3 +18,9 @@ python-dotenv>=1.0.0
 openai
 langchain-community
 langchain-groq
+faiss-cpu
+pypdf
+tiktoken
+duckduckgo-search
+ddgs
+requests
