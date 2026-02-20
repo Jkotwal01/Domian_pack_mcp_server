@@ -20,6 +20,7 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
     version: '1.0.0',
     pdfFile: null
   });
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     loadSessions();
@@ -78,31 +79,35 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
     }
   };
 
-  // Rest of the file...
-  // In the form:
-  /*
-  <div className="space-y-3">
-    <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Knowledge Source (PDF)</label>
-    <div className="relative group">
-      <input 
-        type="file" 
-        accept=".pdf"
-        className="hidden" 
-        id="pdf-upload"
-        onChange={(e) => setFormData({...formData, pdfFile: e.target.files[0]})}
-      />
-      <label 
-        htmlFor="pdf-upload"
-        className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white hover:border-blue-500/50 transition-all"
-      >
-        <span className="text-sm font-medium text-slate-600 truncate">
-          {formData.pdfFile ? formData.pdfFile.name : 'Enhance with PDF Knowledge (Optional)'}
-        </span>
-        <span className="text-xl">📄</span>
-      </label>
-    </div>
-  </div>
-  */
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      if (file.type === "application/pdf") {
+        setFormData({ ...formData, pdfFile: file });
+      } else {
+        alert("Please upload a PDF file.");
+      }
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return "0 Bytes";
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
 
   const handleDeleteDomain = async (e, domainId) => {
     e.stopPropagation(); // Prevent selecting the card
@@ -179,29 +184,22 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
           <div className="flex justify-center">
             <button 
               onClick={() => {
-                setFormData({
-                  name: 'Standard Base Template',
-                  description: 'Production-ready baseline for a new domain pack',
-                  version: '1.0.0'
-                });
+                setFormData({ name: '', description: '', version: '1.0.0', pdfFile: null });
                 setShowMetadataForm(true);
               }}
-              className="group relative bg-white border-2 border-blue-500 rounded-[2.5rem] p-10 hover:shadow-2xl hover:shadow-blue-100 transition-all duration-300 max-w-sm w-full text-center space-y-8"
+              className="group relative bg-white border-2 border-blue-500 rounded-[2.5rem] p-8 hover:shadow-2xl hover:shadow-blue-100 transition-all duration-300 aspect-square w-full max-w-[360px] flex flex-col items-center justify-center text-center space-y-6"
             >
-              <div className="w-24 h-24 bg-blue-600 text-white rounded-[2rem] flex items-center justify-center text-5xl mx-auto shadow-lg group-hover:scale-110 transition-transform">
+              <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-5xl group-hover:scale-110 transition-transform duration-500">
                 🏗️
               </div>
               <div className="space-y-3">
-                <h3 className="text-2xl font-black text-slate-900">Standard Base Template</h3>
-                <p className="text-sm text-slate-500 font-medium leading-relaxed">
-                  Start fresh with universal entities, relationships, and patterns pre-configured for any industry.
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Standard Base Template</h3>
+                <p className="text-slate-500 font-semibold leading-relaxed px-4">
+                  Start with universal entities, relationships, and extraction patterns.
                 </p>
               </div>
-              <div className="flex items-center justify-center space-x-3 text-blue-600 font-black uppercase tracking-widest text-xs pt-4 border-t border-blue-50">
-                <span>Select & Configure</span>
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
+              <div className="inline-flex items-center px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg shadow-blue-200 group-hover:bg-blue-700 transition-all">
+                Select & Configure
               </div>
             </button>
           </div>
@@ -224,27 +222,23 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
               return (
                 <div 
                   key={session.id}
-                  className={`relative bg-white rounded-[2rem] border-2 p-8 transition-all duration-300 cursor-pointer group shadow-sm ${
+                  className={`relative bg-white rounded-[2.5rem] border-2 p-8 transition-all duration-300 cursor-pointer group shadow-sm ${
                     isActive 
                       ? 'border-blue-500 ring-4 ring-blue-50 shadow-xl scale-[1.02]' 
                       : 'border-slate-200 hover:border-blue-400 hover:shadow-lg'
                   }`}
                   onClick={() => setSelectedSession(session)}
                 >
-                  {/* Actions Header */}
+                  {/* Radio Circle & Delete */}
                   <div className="absolute top-6 right-6 flex items-center space-x-2">
-                    {/* Delete Button */}
                     <button
                       onClick={(e) => handleDeleteDomain(e, session.id)}
                       className="w-10 h-10 rounded-full bg-red-50 text-red-500 border border-red-100 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all duration-200"
-                      title="Delete Domain Pack"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
-
-                    {/* Radio Circle */}
                     <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center transition-colors ${
                       isActive ? 'border-blue-500 bg-blue-500' : 'border-slate-200 bg-white'
                     }`}>
@@ -256,45 +250,46 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
                     </div>
                   </div>
 
-                  {/* Icon & Title - Stacked for Vertical Look */}
+                  {/* Icon & Title */}
                   <div className="flex flex-col items-center text-center space-y-4 mb-6">
                     <div className={`w-20 h-20 rounded-2xl flex items-center justify-center text-4xl shadow-sm border ${
-                      isActive ? 'bg-white border-blue-100' : 'bg-slate-50 border-slate-200'
+                      isActive ? 'bg-white border-blue-100 text-blue-600' : 'bg-slate-50 border-slate-200 text-slate-400'
                     }`}>
                       {icon}
                     </div>
                     <div className="space-y-1">
-                      <h3 className="text-xl font-extrabold text-slate-900 line-clamp-1">{session.name}</h3>
-                      <p className="text-xs text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded-full inline-block">
-                        v{session.version || "1.0.0"}
+                      <h3 className="text-xl font-black text-slate-900 tracking-tight leading-none px-2">{session.name}</h3>
+                      <p className="text-[10px] text-blue-600 font-black bg-blue-50 px-3 py-1 rounded-full inline-block uppercase tracking-wider">
+                        v{session.version || "N/A"}
                       </p>
                     </div>
                   </div>
 
-                  {/* Description Section */}
+                  {/* Description */}
                   <div className="mb-8 min-h-[3rem]">
-                    <p className="text-sm text-slate-500 font-medium leading-relaxed text-center line-clamp-2">
-                      {session.description || "No description provided for this domain pack."}
+                    <p className="text-sm text-slate-500 font-medium leading-relaxed text-center line-clamp-2 px-4">
+                      {session.description || "No description provided"}
                     </p>
                   </div>
 
-                    <div className="space-y-4 pt-4 border-t border-slate-50">
-                      <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Configuration Overview</h4>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-100 shadow-sm">
-                          {session.entity_count || 0} Entities
-                        </span>
-                        <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg border border-purple-100 shadow-sm">
-                          {session.relationship_count || 0} Relationships
-                        </span>
-                        <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100 shadow-sm">
-                          {session.key_term_count || 0} Terms
-                        </span>
-                        <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-lg border border-emerald-100 shadow-sm">
-                          {session.extraction_pattern_count || 0} Patterns
-                        </span>
-                      </div>
+                  {/* Configuration Overview */}
+                  <div className="space-y-4 pt-4 border-t border-slate-50">
+                    <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] text-center">Configuration Overview</h4>
+                    <div className="flex flex-wrap gap-2 justify-center">
+                      <span className="px-3 py-1 bg-blue-50 text-blue-600 text-[10px] font-bold rounded-lg border border-blue-100 shadow-sm">
+                        {session.entity_count || 0} Entities
+                      </span>
+                      <span className="px-3 py-1 bg-purple-50 text-purple-600 text-[10px] font-bold rounded-lg border border-purple-100 shadow-sm">
+                        {session.relationship_count || 0} Relationships
+                      </span>
+                      <span className="px-3 py-1 bg-amber-50 text-amber-600 text-[10px] font-bold rounded-lg border border-amber-100 shadow-sm">
+                        {session.key_term_count || 0} Terms
+                      </span>
+                      <span className="px-3 py-1 bg-emerald-50 text-emerald-600 text-[10px] font-bold rounded-lg border border-emerald-100 shadow-sm">
+                        {session.extraction_pattern_count || 0} Patterns
+                      </span>
                     </div>
+                  </div>
                 </div>
               );
             })}
@@ -325,49 +320,81 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
 
       {/* Metadata Form Modal */}
       {showMetadataForm && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg shadow-2xl animate-fadeIn overflow-hidden">
-            <header className="px-10 py-8 border-b border-slate-50 bg-slate-50/50">
-              <h3 className="text-2xl font-black text-slate-900">New Domain Setup</h3>
-              <p className="text-slate-500 font-medium">Define your new domain pack metadata</p>
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-white rounded-[3rem] w-full max-w-[850px] shadow-2xl animate-slideUp overflow-hidden flex flex-col">
+            <header className="px-10 py-8 border-b border-slate-50 bg-white flex items-center justify-between">
+              <div className="space-y-1">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Configure Domain Intelligence</h3>
+                <p className="text-slate-500 text-xs font-bold uppercase tracking-wider">Initialize strategic knowledge parameters</p>
+              </div>
+              <button 
+                onClick={() => setShowMetadataForm(false)}
+                className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center hover:bg-slate-200 hover:text-slate-600 transition-all"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </header>
+            
             <form onSubmit={handleSaveMetadata} className="p-10 space-y-8">
-              <div className="space-y-3">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Domain Name</label>
-                <input 
-                  type="text" 
-                  required
-                  placeholder="e.g. Retail Supply Chain"
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Description</label>
-                <textarea 
-                  rows="3"
-                  placeholder="Describe what this domain pack should cover..."
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900 resize-none"
-                  value={formData.description}
-                  onChange={(e) => setFormData({...formData, description: e.target.value})}
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Version</label>
-                <input 
-                  type="text" 
-                  placeholder="1.0.0"
-                  className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900"
-                  value={formData.version}
-                  onChange={(e) => setFormData({...formData, version: e.target.value})}
-                />
-              </div>
+              <div className="grid grid-cols-2 gap-6">
+                {/* Name Card */}
+                <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 hover:border-blue-200 hover:bg-white transition-all group shadow-sm">
+                  <div className="flex items-center space-x-3 mb-3 text-blue-600">
+                    <span className="text-xl">🏷️</span>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em]">Domain Name</label>
+                  </div>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="e.g. Retail Logistics"
+                    className="w-full bg-transparent border-b border-slate-200 focus:border-blue-500 py-1 text-lg font-black text-slate-900 focus:outline-none transition-all placeholder:text-slate-300"
+                    value={formData.name}
+                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  />
+                </div>
 
-              {/* PDF Knowledge Source Field */}
-              <div className="space-y-3">
-                <label className="text-xs font-black text-slate-400 uppercase tracking-widest pl-1">Knowledge Source (PDF)</label>
-                <div className="relative group">
+                {/* Version Card */}
+                <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 hover:border-purple-200 hover:bg-white transition-all group shadow-sm">
+                  <div className="flex items-center space-x-3 mb-3 text-purple-600">
+                    <span className="text-xl">🔢</span>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em]">Version Control</label>
+                  </div>
+                  <input 
+                    type="text" 
+                    placeholder="1.0.0"
+                    className="w-full bg-transparent border-b border-slate-200 focus:border-purple-500 py-1 text-lg font-black text-slate-900 focus:outline-none transition-all placeholder:text-slate-300"
+                    value={formData.version}
+                    onChange={(e) => setFormData({...formData, version: e.target.value})}
+                  />
+                </div>
+
+                {/* Description Card */}
+                <div className="bg-slate-50 rounded-[2rem] p-6 border border-slate-100 hover:border-amber-200 hover:bg-white transition-all group shadow-sm">
+                  <div className="flex items-center space-x-3 mb-3 text-amber-600">
+                    <span className="text-xl">📝</span>
+                    <label className="text-[10px] font-black uppercase tracking-[0.2em]">Domain description</label>
+                  </div>
+                  <textarea 
+                    rows="2"
+                    placeholder="Describe the objective..."
+                    className="w-full bg-transparent border-b border-slate-200 focus:border-amber-500 py-1 text-xs font-bold text-slate-700 focus:outline-none transition-all resize-none placeholder:text-slate-300"
+                    value={formData.description}
+                    onChange={(e) => setFormData({...formData, description: e.target.value})}
+                  />
+                </div>
+
+                {/* PDF Card */}
+                <div 
+                  className={`relative group rounded-[2rem] border-2 border-dashed transition-all duration-300 flex items-center justify-between p-6 ${
+                    isDragging ? 'border-blue-500 bg-blue-50' : 
+                    formData.pdfFile ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50 hover:border-emerald-400 hover:bg-white'
+                  }`}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                >
                   <input 
                     type="file" 
                     accept=".pdf"
@@ -375,31 +402,58 @@ export default function Dashboard({ sidebarOpen, toggleSidebar }) {
                     id="pdf-upload"
                     onChange={(e) => setFormData({...formData, pdfFile: e.target.files[0]})}
                   />
-                  <label 
-                    htmlFor="pdf-upload"
-                    className="w-full flex items-center justify-between px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl cursor-pointer hover:bg-white hover:border-blue-500/50 transition-all"
-                  >
-                    <span className="text-sm font-medium text-slate-600 truncate">
-                      {formData.pdfFile ? formData.pdfFile.name : 'Enhance with PDF Knowledge (Optional)'}
-                    </span>
-                    <span className="text-xl">📄</span>
-                  </label>
+                  
+                  {!formData.pdfFile ? (
+                    <label htmlFor="pdf-upload" className="flex items-center space-x-4 w-full cursor-pointer">
+                      <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-2xl group-hover:scale-110 transition-transform">
+                        📄
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Context Source</p>
+                        <p className="text-xs font-black text-slate-600">Click or drop PDF here</p>
+                      </div>
+                    </label>
+                  ) : (
+                    <div className="flex items-center space-x-4 w-full animate-fadeIn">
+                      <div className="w-12 h-12 bg-white rounded-2xl shadow-sm border border-emerald-100 flex items-center justify-center text-2xl">
+                        📑
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-slate-900 truncate">{formData.pdfFile.name}</p>
+                        <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                          {formatFileSize(formData.pdfFile.size)}
+                        </p>
+                      </div>
+                      <button 
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setFormData({...formData, pdfFile: null});
+                        }}
+                        className="w-8 h-8 rounded-full bg-white text-rose-500 border border-slate-100 flex items-center justify-center hover:bg-rose-500 hover:text-white transition-all"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex items-center space-x-4 pt-4">
+              <div className="flex items-center space-x-6 pt-4">
                 <button 
                   type="button"
                   onClick={() => setShowMetadataForm(false)}
-                  className="flex-1 py-4 bg-slate-100 text-slate-600 font-bold rounded-2xl hover:bg-slate-200 transition-colors"
+                  className="px-8 py-4 bg-slate-100 text-slate-500 font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-slate-200 transition-all"
                 >
-                  Cancel
+                  Discard Changes
                 </button>
                 <button 
                   type="submit"
-                  className="flex-[2] py-4 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all"
+                  className="flex-1 py-4 bg-blue-600 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-blue-700 shadow-xl shadow-blue-100 transition-all"
                 >
-                  Save & Configure
+                  Generate Intelligence Pack
                 </button>
               </div>
             </form>

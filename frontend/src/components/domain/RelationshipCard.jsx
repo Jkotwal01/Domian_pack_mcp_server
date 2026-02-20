@@ -27,11 +27,26 @@ export default function RelationshipCard({ relationship, index, onEdit, onDelete
       </div>
 
       {/* Relationship name */}
-      <h5 className="text-sm font-bold text-slate-800 text-center">{relationship.name}</h5>
+      <h5 className="text-sm font-black text-slate-800 text-center tracking-tight">{relationship.name}</h5>
 
       {/* Description */}
       {relationship.description && (
-        <p className="text-xs text-slate-500 text-center">{relationship.description}</p>
+        <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+          {relationship.description}
+        </p>
+      )}
+
+      {/* Attributes */}
+      {relationship.attributes && relationship.attributes.length > 0 && (
+        <div className="pt-2 border-t border-slate-100 mt-2">
+          <div className="flex flex-wrap gap-1.5 justify-center">
+            {relationship.attributes.map((attr, idx) => (
+              <span key={idx} className="px-2 py-0.5 bg-white text-[9px] font-bold text-slate-400 border border-slate-100 rounded-md">
+                {typeof attr === 'string' ? attr : attr.name}
+              </span>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );

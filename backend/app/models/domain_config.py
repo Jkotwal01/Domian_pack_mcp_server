@@ -35,8 +35,8 @@ class DomainConfig(Base):
     def __repr__(self):
         return f"<DomainConfig(id={self.id}, name={self.name}, owner_id={self.owner_user_id})>"
     
-    def update_counts(self):
-        """Update cached counts from config_json."""
+    def sync_from_config(self):
+        """Sync top-level fields and cached counts from config_json."""
         if self.config_json is None:
             self.entity_count = 0
             self.relationship_count = 0
@@ -44,7 +44,22 @@ class DomainConfig(Base):
             self.key_term_count = 0
             return
             
+        # Extract counts
         self.entity_count = len(self.config_json.get("entities", []))
         self.relationship_count = len(self.config_json.get("relationships", []))
         self.extraction_pattern_count = len(self.config_json.get("extraction_patterns", []))
         self.key_term_count = len(self.config_json.get("key_terms", []))
+        
+        # Extract metadata if present in config_json
+        # Only update if the values in config_json are not empty/null
+        name = self.config_json.get("name")
+        if name:
+            self.name = name
+            
+        description = self.config_json.get("description")
+        if description:
+            self.description = description
+            
+        version = self.config_json.get("version")
+        if version:
+            self.version = version

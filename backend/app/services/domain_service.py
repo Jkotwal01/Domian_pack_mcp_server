@@ -53,6 +53,7 @@ class DomainService:
         config_json = await generate_domain_template(
             domain_name=domain_data.name,
             description=domain_data.description or "",
+            version=domain_data.version,
             retriever=retriever
         )
         
@@ -64,8 +65,8 @@ class DomainService:
             config_json=config_json
         )
         
-        # Update counts
-        db_domain.update_counts()
+        # Update counts and metadata
+        db_domain.sync_from_config()
         
         db.add(db_domain)
         db.commit()
@@ -151,7 +152,7 @@ class DomainService:
             domain.version = domain_data.version
         if domain_data.config_json is not None:
             domain.config_json = domain_data.config_json
-            domain.update_counts()
+            domain.sync_from_config()
         
         db.commit()
         db.refresh(domain)
@@ -193,7 +194,7 @@ class DomainService:
         """
         domain = DomainService.get_domain_by_id(db, domain_id, user)
         domain.config_json = config_json
-        domain.update_counts()
+        domain.sync_from_config()
         
         db.commit()
         db.refresh(domain)

@@ -60,26 +60,36 @@ export default function EntityModal({ entity, onSave, onClose }) {
         <form onSubmit={handleSubmit} className="p-8 space-y-6 max-h-[70vh] overflow-y-auto">
           {/* Name */}
           <div className="space-y-2">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Entity Name *</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Entity Name *</label>
+              <span className="text-[10px] font-bold text-slate-400">Use Title Case</span>
+            </div>
             <input
               type="text"
               required
-              placeholder="e.g. Contract, Patient, Vehicle"
+              placeholder="e.g. Legal Issue, Court Case, Medical Record"
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) => {
+                const newName = e.target.value;
+                const newType = newName.trim().toUpperCase().replace(/\s+/g, '_');
+                setFormData({ ...formData, name: newName, type: newType });
+              }}
             />
           </div>
 
           {/* Type */}
           <div className="space-y-2">
-            <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Entity Type</label>
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Entity Type</label>
+              <span className="text-[10px] font-bold text-blue-500">Auto-generated from name</span>
+            </div>
             <input
               type="text"
-              placeholder="e.g. LEGAL_DOCUMENT, PERSON, PRODUCT"
-              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-medium text-slate-900"
+              placeholder="e.g. LEGAL_ISSUE, COURT_CASE"
+              className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:bg-white transition-all font-mono text-sm text-slate-500 bg-slate-50/50"
               value={formData.type || ''}
-              onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, type: e.target.value.toUpperCase().replace(/\s+/g, '_') })}
             />
           </div>
 

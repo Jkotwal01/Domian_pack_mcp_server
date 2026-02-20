@@ -9,8 +9,7 @@ import ast
 from typing import Dict, Any, List, Optional, Any
 from dotenv import load_dotenv
 from app.config import settings
-from pydantic import BaseModel, Field
-from typing import List, Optional, Any
+from app.schemas.domain import DomainConfigSchema
 
 # Set up logging
 logger = logging.getLogger("uvicorn.error")
@@ -18,50 +17,11 @@ llm_call_count = 0
 
 # Load environment variables
 load_dotenv()
-class Attribute(BaseModel):
-    name: str = Field(..., description="Attribute name (e.g. 'title')")
-    description: str = Field(..., description="Description")
-    examples: List[str] = Field(default_factory=list, description="Examples")
-
-class Entity(BaseModel):
-    name: str = Field(..., description="PascalCase name")
-    type: str = Field(..., description="UPPERCASE_SNAKE_CASE type")
-    description: str = Field(..., description="Description")
-    attributes: List[Attribute] = Field(default_factory=list)
-    synonyms: List[str] = Field(default_factory=list)
-
-class RelationshipAttribute(BaseModel):
-    name: str = Field(..., description="Attribute name")
-    description: str = Field(..., description="Description")
-    examples: List[str] = Field(default_factory=list)
-
-class Relationship(BaseModel):
-    name: str = Field(..., description="UPPERCASE_SNAKE_CASE name")
-    from_entity: str = Field(..., alias="from", description="Source entity")
-    to: str = Field(..., description="Target entity")
-    description: str = Field(..., description="Description")
-    attributes: List[RelationshipAttribute] = Field(default_factory=list)
-
-class ExtractionPattern(BaseModel):
-    pattern: str = Field(..., description="Regex")
-    entity_type: str = Field(..., description="Target entity name")
-    attribute: str = Field(..., description="Attribute name")
-    extract_full_match: bool = Field(default=True)
-    confidence: float = Field(default=0.8)
-
-class DomainConfig(BaseModel):
-    """Structured domain configuration."""
-    name: str = Field(..., description="Domain name")
-    description: str = Field(..., description="Description")
-    version: str = Field(default="1.0.0")
-    entities: List[Entity] = Field(default_factory=list)
-    relationships: List[Relationship] = Field(default_factory=list)
-    extraction_patterns: List[ExtractionPattern] = Field(default_factory=list)
-    key_terms: List[str] = Field(default_factory=list)
 
 async def generate_domain_template(
     domain_name: str, 
     description: str, 
+    version: str = "1.0.0",
     retriever: Any = None
 ) -> Dict[str, Any]:
     """
@@ -90,6 +50,7 @@ async def generate_domain_template(
         prompt_content = f"""
                         Domain Name: {domain_name}
                         User Description: {description}
+                        Version: {version}
                         """
         
         if rag_context:
@@ -97,10 +58,12 @@ async def generate_domain_template(
 
         prompt_content += """
                         Requirements:
-                        - Entity 'name' must be in PascalCase (e.g., 'MedicalRecord').
-                        - Entity 'type' must be in UPPERCASE_SNAKE_CASE (e.g., 'MEDICAL_RECORD').
+                        - The output JSON MUST include the 'name', 'description', and 'version' exactly as provided.
+                        - Entity 'name' should be Title Case (e.g., 'Court', 'Legal Issue', 'Case').
+                        - Entity 'type' MUST be the exact UPPERCASE_SNAKE_CASE version of the 'name' (e.g., 'COURT', 'LEGAL_ISSUE', 'CASE').
+                        - For relationships, the 'from' and 'to' fields MUST match the entity 'type' exactly (e.g., 'from': 'CASE', 'to': 'COURT').
+                        - For extraction patterns, 'entity_type' MUST match the entity 'type' exactly (e.g., 'CASE').
                         - Generate at least 2 entities and 1 relationship.
-                        - Use realistic entity categories: DOCUMENT, PERSON, ORGANIZATION, EVENT, LOCATION, SYSTEM.
                         """
 
         # Get configured LLM
@@ -111,12 +74,15 @@ async def generate_domain_template(
             # For Groq, manual JSON mode is often more robust for complex schemas
             system_msg = (
                 "You are a domain modeling assistant. Generate a structured domain configuration as a single JSON object. "
-                "STRICT NAMING REQUIREMENTS: Entity 'name' = PascalCase, Entity 'type' = UPPERCASE_SNAKE_CASE. "
-                "Output MUST be ONLY the valid JSON object matching the provided structure."
+                "STRICT NAMING CONVENTION:\n"
+                "1. Entity 'name' = Title Case (e.g., 'Legal Issue')\n"
+                "2. Entity 'type' = UPPERCASE_SNAKE_CASE version of name (e.g., 'LEGAL_ISSUE')\n"
+                "3. Relationships ('from', 'to') and Extraction Patterns ('entity_type') MUST reference the entity 'type' exactly (e.g., 'from': 'CASE').\n"
+                "Output MUST be ONLY valid JSON."
             )
             
             # Use the base template as a clear schema indicator in the prompt
-            schema_json = json.dumps(get_base_template("DomainName", "Description"), indent=2)
+            schema_json = json.dumps(get_base_template(domain_name, description, version), indent=2)
             user_msg = f"{prompt_content}\n\nOutput MUST strictly follow this JSON structure:\n{schema_json}"
             
             messages = [("system", system_msg), ("user", user_msg)]
@@ -130,17 +96,23 @@ async def generate_domain_template(
             if json_match:
                 try:
                     parsed_data = json.loads(json_match.group(1))
+                    # Ensure name/version are preserved even if LLM missed them
+                    if parsed_data.get("name") == "DomainName":
+                        parsed_data["name"] = domain_name
+                    if parsed_data.get("version") == "1.0.0" and version != "1.0.0":
+                        parsed_data["version"] = version
+                    
                     logger.info("✅ Successfully generated domain template using Groq (manual JSON mode)")
                     return parsed_data
                 except Exception as parse_err:
                     logger.error(f"Failed to parse JSON from Groq response: {str(parse_err)}")
             
             logger.warning("Could not find or parse JSON in Groq response - falling back")
-            return get_base_template(domain_name, description)
+            return get_base_template(domain_name, description, version)
 
         else:
             # Use LangChain's structured output for OpenAI
-            structured_llm = llm.with_structured_output(DomainConfig)
+            structured_llm = llm.with_structured_output(DomainConfigSchema)
             messages = [
                 (
                     "system", 
@@ -154,31 +126,39 @@ async def generate_domain_template(
             parsed_data = await structured_llm.ainvoke(messages)
             
             if not parsed_data:
-                return get_base_template(domain_name, description)
+                return get_base_template(domain_name, description, version)
                 
             logger.info(f"Successfully generated domain template using {settings.LLM_PROVIDER}")
-            return parsed_data.model_dump(by_alias=True) if hasattr(parsed_data, "model_dump") else parsed_data
+            data = parsed_data.model_dump(by_alias=True) if hasattr(parsed_data, "model_dump") else parsed_data
+            
+            # Final sanity check for name/version
+            if data.get("name") in ["", "New Domain"]:
+                data["name"] = domain_name
+            if version and data.get("version") == "1.0.0" and version != "1.0.0":
+                data["version"] = version
+                
+            return data
 
     except Exception as e:
         logger.error(f"AI Template Generation Error: {str(e)}")
         logger.info("Falling back to hardcoded base template due to error")
-        return get_base_template(domain_name, description)
+        return get_base_template(domain_name, description, version)
 
-def get_base_template(name: str = "New Domain", description: str = "") -> Dict[str, Any]:
+def get_base_template(name: str = "New Domain", description: str = "", version: str = "1.0.0") -> Dict[str, Any]:
     """
     Returns the base template for a new domain configuration.
     This template includes universal entities, relationships, and patterns.
     """
     return {
         "name": name,
-        "description": description or "A new domain configuration",
-        "version": "1.0.0",
+        "description": description or f"A new domain configuration for {name}",
+        "version": version,
         "entities": [
             {
                 "name": "Document",
                 "type": "DOCUMENT",
                 "description": "A document or file in the domain",
-                        "attributes": [
+                "attributes": [
                     {
                         "name": "title",
                         "description": "The title or name of the document",
@@ -232,7 +212,7 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
         "relationships": [
             {
                 "name": "CREATED_BY",
-                "from": "DOCUMENT",
+                "from": "MEDICAL_RECORD",
                 "to": "PERSON",
                 "description": "Indicates that a document was created by a person",
                 "attributes": [
@@ -267,7 +247,7 @@ def get_base_template(name: str = "New Domain", description: str = "") -> Dict[s
             },
             {
                 "pattern": r"\b\d{4}-\d{2}-\d{2}\b",
-                "entity_type": "DOCUMENT",
+                "entity_type": "MEDICAL_RECORD",
                 "attribute": "date",
                 "extract_full_match": True,
                 "confidence": 0.95

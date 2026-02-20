@@ -45,7 +45,7 @@ export default function PatternModal({ pattern, entities, onSave, onClose }) {
               >
                 <option value="">Select entity</option>
                 {entities.map((entity, idx) => (
-                  <option key={idx} value={entity.name}>{entity.name}</option>
+                  <option key={idx} value={entity.type}>{entity.name}</option>
                 ))}
               </select>
             </div>
