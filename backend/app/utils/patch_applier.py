@@ -467,16 +467,24 @@ def add_relationship_attribute(config: Dict[str, Any], patch: PatchOperation) ->
         if rel["name"] == patch.parent_name:
             if "attributes" not in rel:
                 rel["attributes"] = []
+                
+            # Allow fallback if model populated other schema fields instead of strict payload
+            attr_name = patch.payload["name"] if patch.payload else (patch.attribute_name or str(patch.new_value))
+            attr_desc = patch.payload.get("description", "") if patch.payload else ""
+            attr_examples = patch.payload.get("examples", []) if patch.payload else []
             
-            if any(a["name"] == patch.payload["name"] for a in rel["attributes"]):
+            if not attr_name or attr_name == "None":
+                raise ValueError("Attribute name is required but was not provided.")
+            
+            if any(a["name"] == attr_name for a in rel["attributes"]):
                 raise ValueError(
-                    f"Attribute '{patch.payload['name']}' already exists in {patch.parent_name}"
+                    f"Attribute '{attr_name}' already exists in {patch.parent_name}"
                 )
             
             attribute = {
-                "name": patch.payload["name"],
-                "description": patch.payload.get("description", ""),
-                "examples": patch.payload.get("examples", [])
+                "name": attr_name,
+                "description": attr_desc,
+                "examples": attr_examples
             }
             rel["attributes"].append(attribute)
             return config

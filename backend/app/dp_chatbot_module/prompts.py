@@ -1,66 +1,38 @@
 """Prompt templates for LLM nodes in the chatbot workflow."""
 
 INTENT_CLASSIFICATION_PROMPT = """You are analyzing a user request related to a domain configuration.
-Current Domain Context:
+Current Context:
 {context}
 User Request:
 {user_message}
-Classify the intent as ONE of these operations:
-- update_domain_name, update_domain_description, update_domain_version
-- add_entity, update_entity_name, update_entity_type, update_entity_description, delete_entity
-- add_entity_attribute, update_entity_attribute_name, update_entity_attribute_description, delete_entity_attribute
-- add_entity_attribute_example, update_entity_attribute_example, delete_entity_attribute_example
-- add_entity_synonym, update_entity_synonym, delete_entity_synonym
-- add_relationship, update_relationship_name, update_relationship_from, update_relationship_to, update_relationship_description, delete_relationship
-- add_relationship_attribute, update_relationship_attribute_name, update_relationship_attribute_description, delete_relationship_attribute
-- add_relationship_attribute_example, update_relationship_attribute_example, delete_relationship_attribute_example
-- add_extraction_pattern, update_extraction_pattern_pattern, update_extraction_pattern_entity_type, update_extraction_pattern_attribute, update_extraction_pattern_extract_full_match, update_extraction_pattern_confidence, delete_extraction_pattern
-- add_key_term, update_key_term, delete_key_term
-- info_query (for specific questions ABOUT the current configuration: "what entities do I have?", "list my attributes", "show extraction patterns")
-- general_query (for general knowledge about domain packs, how the system works, best practices for schema design, or suggestions for new domains/concepts)
 
-CRITICAL RULES FOR NAMING CONFLICTS:
-1. If the user asks to ADD an element (Entity, Relationship) that ALREADY EXISTS in the 'Current Domain Context' below, DO NOT use an 'add_' operation.
-2. Instead, if they are providing new details, classify it as the corresponding 'update_' operation.
-3. If they are just stating it exists or asking about it, classify it as 'info_query'.
-4. This avoids 'duplicate name' errors during validation.
-5. IMPORTANT: Entities are linked by TYPE (uppercase snake_case), not by name. For relationships, always consider the entity type.
+Classify the intent into EXACTLY ONE of these categories:
+- domain_operation (editing name, description, etc.)
+- entity_operation (adding/editing/deleting entities or their attributes)
+- relationship_operation (adding/editing/deleting relationships or their attributes)
+- extraction_pattern_operation (adding/editing patterns)
+- key_term_operation (adding/editing key terms)
+- info_query (asking what exists in the current config)
+- general_query (general knowledge about domain packs, suggestions, best practices)
 
-Examples:
-- "list all entities" -> info_query
-- "show me attributes for Case" -> info_query
-- "what is a domain pack?" -> general_query
-- "how should I structure extraction patterns?" -> general_query
-- "suggest some medical entities for a new clinic domain" -> general_query
-
-Respond with ONLY the operation name, nothing else."""
+CRITICAL RULES:
+1. If the user asks to ADD an element that ALREADY EXISTS, treat it as an operation on that category (e.g. entity_operation).
+2. If they just state it exists or ask about it, classify as info_query.
+Respond with ONLY the category name, nothing else."""
 
 
-PATCH_GENERATION_PROMPT = """Generate PatchList (array of PatchOperations) for:
+PATCH_GENERATION_PROMPT = """Generate a PatchList to fulfill the user's request.
 Intent: {intent}
 Context: {context}
 Request: {user_message}
 
 RULES:
-- REASONING: Provide 1-2 concise sentences explaining your plan.
-- Entities/Relationships MUST have 'type' and 'description'.
-- Attributes: {{"name": str, "description": str, "examples": []}}
-- Extraction Patterns: valid Python REGEX.
-- CONFLICTS: If ADDING something that EXISTS in Context, use 'update' instead.
-- IMPORTANT: Relationships MUST use entity 'type' (e.g., STUDENT) for 'from' and 'to' fields, NOT the display name (e.g., Student).
-
-PatchOperation Schema:
-- type: e.g. 'add_entity', 'update_entity_name'
-- target_name, parent_name, attribute_name, old_value, new_value, payload (as needed)
-
-Example (Multiple actions):
-{{
-  "reasoning": "Plan to add a new 'dosage' key term and create the 'Dx' entity.",
-  "patches": [
-    {{ "type": "add_key_term", "new_value": "dosage" }},
-    {{ "type": "add_entity", "payload": {{"name": "Dx", "type": "DX", "description": "...", "attributes": []}} }}
-  ]
-}}"""
+1. Entities and Relationships MUST have 'type' and 'description'.
+2. Relationships MUST use entity 'type' for 'from' and 'to' fields (e.g., STUDENT, not Student).
+3. If ADDING something that ALREADY EXISTS, use 'update' operations instead to avoid conflicts.
+4. Extraction Patterns MUST be valid Python REGEX.
+5. ARRAY ADDITIONS: When adding synonyms, examples, or key terms, DO NOT use 'payload'. Instead, set the 'parent_name' (if applicable) and pass the string directly in 'new_value'.
+"""
 
 
 ERROR_EXPLANATION_PROMPT = """The following error occurred while trying to apply a change to the domain configuration:

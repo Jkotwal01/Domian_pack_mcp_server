@@ -138,19 +138,22 @@ def format_minimal_context(
         if target_name:
             entities = get_relevant_entities(config, [target_name])
             relationships = get_relevant_relationships(config, relationship_names=[target_name])
-            return json.dumps({
-                "target": entities[0] if entities else (relationships[0] if relationships else None),
-                "summary": {
-                    "entities": [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])],
-                    "relationship_names": [r["name"] for r in config.get("relationships", [])]
-                }
-            }, indent=2)
+            if entities or relationships:
+                return json.dumps({
+                    "target": entities[0] if entities else relationships[0]
+                }, indent=2)
 
-    # Default: return summary only
-    return json.dumps({
-        "entities": [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])],
-        "relationship_names": [r["name"] for r in config.get("relationships", [])]
-    })
+    # Dense Markdown representation for minimal token usage
+    md_lines = [f"Domain: {config.get('name')} (v{config.get('version')})", "Entities:"]
+    for e in config.get("entities", []):
+        attrs = [a["name"] for a in e.get("attributes", [])]
+        md_lines.append(f"- {e['name']} ({e['type']}): {e.get('description', '')}. Configured Attributes: {', '.join(attrs) if attrs else 'None'}")
+        
+    md_lines.append("Relationships:")
+    for r in config.get("relationships", []):
+        md_lines.append(f"- {r['name']} ({r.get('from', '')} -> {r.get('to', '')}): {r.get('description', '')}")
+
+    return "\n".join(md_lines)
 
 
 def extract_target_from_message(

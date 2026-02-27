@@ -201,6 +201,16 @@ class ValidationService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Relationship '{rel['name']}' references unknown entity type: {rel['to']}"
                 )
+
+            # Validate relationship attributes if present
+            if "attributes" in rel:
+                for attr in rel["attributes"]:
+                    if "name" not in attr or "description" not in attr:
+                        raise HTTPException(
+                            status_code=status.HTTP_400_BAD_REQUEST,
+                            detail=f"Attribute in relationship '{rel['name']}' missing name or description"
+                        )
+
     
     @staticmethod
     def _validate_patterns(
