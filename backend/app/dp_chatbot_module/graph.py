@@ -1,6 +1,5 @@
 """LangGraph workflow for domain configuration chatbot."""
 from langgraph.graph import StateGraph, END
-from langgraph.checkpoint.memory import InMemorySaver
 from app.dp_chatbot_module.state import AgentState
 from app.dp_chatbot_module.nodes import (
     classify_intent_node,
@@ -34,9 +33,6 @@ def route_after_intent(state: AgentState) -> str:
         return "general_knowledge"
     return "generate_patch"
 
-
-# Checkpointer for state persistence
-checkpointer = InMemorySaver()
 
 # Build the workflow graph
 workflow = StateGraph(AgentState)
@@ -80,5 +76,5 @@ workflow.add_edge("prepare_confirmation", "generate_response")
 workflow.add_edge("generate_response", END)
 workflow.add_edge("general_knowledge", END)
 
-# Compile the graph with checkpointer
-domain_graph = workflow.compile(checkpointer=checkpointer)
+# Compile the graph
+domain_graph = workflow.compile()

@@ -82,13 +82,17 @@ function AppContent() {
 
   const handleProceedToEnhancement = (domainId, domainName, sessionId) => {
     // Look for existing session that matches this domain
-    let existingSession = sessions.find(s => s.domainConfigId === domainId || s.mcpSessionId === sessionId);
+    // Critical fix: Ensure we don't accidentally match on undefined/null session IDs
+    let existingSession = sessions.find(s => 
+      (domainId && s.domainConfigId === domainId) || 
+      (sessionId && s.mcpSessionId === sessionId)
+    );
     
     if (!existingSession) {
       addSession({
         title: domainName,
         domainConfigId: domainId,
-        mcpSessionId: sessionId
+        mcpSessionId: sessionId || null
       });
     } else {
       switchSession(existingSession.id);
