@@ -25,30 +25,37 @@ const USE_MOCK_DATA = false;
 
 const StepIndicator = ({ currentStep }) => {
   const steps = [
-    { num: 1, text: "Select Domain", sub: "Choose from existing or create a new template" },
-    { num: 2, text: "Customize Domain", sub: "Define entities, attributes and relationships" },
-    { num: 3, text: "Export & Generate", sub: "Generate final pack and export for use" }
+    { num: 1, text: "Select", sub: "Template Selection" },
+    { num: 2, text: "Design", sub: "Domain Customization" },
+    { num: 3, text: "Deploy", sub: "Export & Pack" }
   ];
 
   return (
-    <div className="bg-white border-b border-slate-100 py-8">
-      <div className="max-w-5xl mx-auto flex items-start justify-between relative px-4">
-        {/* Connecting Line */}
-        <div className="absolute top-5 left-12 right-12 h-0.5 bg-slate-100 -z-0"></div>
+    <div className="bg-white/50 backdrop-blur-md border-b border-indigo-50/50 py-10">
+      <div className="max-w-4xl mx-auto flex items-start justify-between relative px-6">
+        {/* Modern Connecting Line */}
+        <div className="absolute top-5 left-16 right-16 h-[2px] bg-slate-100/80 -z-0">
+          <div 
+            className="h-full bg-linear-to-r from-indigo-500 to-violet-500 transition-all duration-700 ease-out"
+            style={{ width: `${(currentStep - 1) * 50}%` }}
+          ></div>
+        </div>
         
         {steps.map((step) => (
-          <div key={step.num} className="flex flex-col items-center relative z-10 w-1/3">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm mb-3 transition-colors ${
+          <div key={step.num} className="flex flex-col items-center relative z-10">
+            <div className={`w-11 h-11 rounded-2xl flex items-center justify-center font-black text-sm mb-4 transition-all duration-500 ${
               currentStep === step.num 
-                ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' 
-                : currentStep > step.num ? 'bg-emerald-500 text-white' : 'bg-blue-50 text-blue-600'
+                ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-xl shadow-indigo-200 rotate-3 scale-110' 
+                : currentStep > step.num 
+                  ? 'bg-emerald-500 text-white rotate-0' 
+                  : 'bg-white text-slate-400 border border-slate-100 shadow-sm'
             }`}>
-              {currentStep > step.num ? '✓' : step.num}
+              {currentStep > step.num ? '✓' : `0${step.num}`}
             </div>
-            <h3 className={`font-bold text-sm mb-1 ${currentStep === step.num ? 'text-slate-900' : 'text-slate-400'}`}>
+            <h3 className={`font-black text-[11px] uppercase tracking-[0.2em] mb-1.5 ${currentStep === step.num ? 'text-slate-900' : 'text-slate-400'}`}>
               {step.text}
             </h3>
-            <p className="text-[10px] text-slate-400 text-center max-w-[150px] leading-tight px-2">
+            <p className="text-[10px] text-slate-400 font-bold text-center max-w-[120px] leading-tight opacity-60">
               {step.sub}
             </p>
           </div>
@@ -246,45 +253,45 @@ export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onTog
       {/* Header */}
       <Header
         title={session?.name || 'Domain Configuration'}
-        subtitle={session?.description || 'Configure your domain pack'}
+        subtitle={session?.description || 'Build and refine your domain architecture'}
         showBackButton={true}
         onBack={handleBack}
         showSidebarToggle={true}
         toggleSidebar={toggleSidebar}
         rightActions={
-          <>
+          <div className="flex items-center space-x-3">
             {!isChatOpen && (
               <button
                 onClick={handleProceedToChat}
-                className="px-4 py-2 bg-gradient-to-r from-purple-600 to-blue-600 text-white font-bold rounded-xl hover:from-purple-700 hover:to-blue-700 shadow-lg shadow-purple-200 transition-all flex items-center space-x-2"
+                className="px-5 py-2.5 bg-linear-to-r from-indigo-600 to-violet-700 text-white font-black text-[10px] uppercase tracking-widest rounded-xl hover:from-indigo-700 hover:to-violet-800 shadow-xl shadow-indigo-100 transition-all flex items-center space-x-2 active:scale-95"
               >
-                <span className="text-lg">💬</span>
-                <span>Open Chatbot</span>
+                <span className="text-sm">💬</span>
+                <span>Chatbot</span>
               </button>
             )}
             <button
               onClick={viewMode === 'visual' ? handleSaveVisual : handleSaveYAML}
               disabled={saving}
-              className={`px-4 py-2 text-white font-bold rounded-xl shadow-lg transition-all flex items-center space-x-2 ${
-                saving ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-200'
+              className={`px-5 py-2.5 text-white font-black text-[10px] uppercase tracking-widest rounded-xl shadow-xl transition-all flex items-center space-x-2 active:scale-95 ${
+                saving ? 'bg-slate-400 cursor-not-allowed shadow-none' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-100'
               }`}
             >
-              <span>{saving ? '⏳ Saving...' : '💾 Save Changes'}</span>
+              <span>{saving ? '⏳ Saving' : '💾 Save State'}</span>
             </button>
             <button
               onClick={() => setViewMode(viewMode === 'visual' ? 'yaml' : 'visual')}
-              className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors flex items-center space-x-2"
+              className="px-5 py-2.5 bg-white text-slate-700 font-black text-[10px] uppercase tracking-widest rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center space-x-2 shadow-sm active:scale-95"
             >
-              <span>{viewMode === 'visual' ? '📝 YAML Editor' : '👁️ Visual View'}</span>
+              <span>{viewMode === 'visual' ? '🛠️ YAML Mode' : '👁️ Visual Mode'}</span>
             </button>
             <button
               onClick={handleDeleteDomain}
-              className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all flex items-center space-x-2 border border-red-100"
+              className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all border border-transparent hover:border-red-100 active:scale-90"
               title="Delete this domain pack"
             >
-              <span>🗑️ Delete Pack</span>
+              <span className="text-lg">🗑️</span>
             </button>
-          </>
+          </div>
         }
       />
 
@@ -296,23 +303,23 @@ export default function ConfigView({ onProceed, toggleSidebar, isChatOpen, onTog
         <div className="space-y-6 max-h-[calc(100vh-280px)] overflow-y-auto pb-20">
           {viewMode === 'visual' ? (
             <>
-              {/* Tab Navigation */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-2 flex space-x-2">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm transition-all ${
-                      activeTab === tab.id
-                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-200'
-                        : 'text-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="mr-2">{tab.icon}</span>
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+            {/* Header Actions */}
+            <div className="flex bg-white/40 backdrop-blur-sm p-1 rounded-2xl border border-indigo-50/50 shadow-sm mb-8">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 flex items-center justify-center space-x-2.5 py-3 px-6 rounded-xl font-black text-xs uppercase tracking-[0.15em] transition-all duration-300 ${
+                    activeTab === tab.id
+                      ? 'bg-linear-to-br from-indigo-600 to-violet-700 text-white shadow-xl shadow-indigo-200 -translate-y-0.5'
+                      : 'text-slate-500 hover:text-indigo-600 hover:bg-white/60'
+                  }`}
+                >
+                  <span className="text-sm filter drop-shadow-sm">{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </div>
 
               {/* Tab Content */}
               <div>

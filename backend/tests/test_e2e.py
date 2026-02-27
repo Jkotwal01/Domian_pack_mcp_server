@@ -221,7 +221,7 @@ class TestConfigPersistence:
             "description": "User email",
             "examples": ["user@test.com"]
         })
-        test_domain.update_counts()
+        test_domain.sync_from_config()
         db_session.commit()
         
         # Refresh from database
@@ -540,7 +540,7 @@ class TestCompleteWorkflow:
             "description": "User email",
             "examples": []
         })
-        test_domain.update_counts()
+        test_domain.sync_from_config()
         session.session_metadata = {}
         db_session.commit()
         

@@ -244,6 +244,10 @@ export async function createChatSession(domainConfigId) {
   });
 }
 
+export async function listChatSessions() {
+  return apiFetch('/chat/sessions');
+}
+
 export async function sendChatMessage(sessionId, message) {
   return apiFetch(`/chat/sessions/${sessionId}/message`, {
     method: 'POST',
@@ -281,12 +285,11 @@ export async function checkHealth() {
 }
 
 /**
- * STATS (LLM Monitoring)
+ * STATS (LLM Session Stats)
  */
-export async function getStats() {
+export async function getSessionStats(sessionId) {
   try {
-    const response = await fetch(`${BACKEND_URL}/stats`);
-    return await handleResponse(response);
+    return await apiFetch(`/chat/sessions/${sessionId}/stats`);
   } catch (error) {
     return { error: error.message };
   }

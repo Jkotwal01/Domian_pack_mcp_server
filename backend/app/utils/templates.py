@@ -63,7 +63,7 @@ async def generate_domain_template(
                         - Entity 'type' MUST be the exact UPPERCASE_SNAKE_CASE version of the 'name' (e.g., 'COURT', 'LEGAL_ISSUE', 'CASE').
                         - For relationships, the 'from' and 'to' fields MUST match the entity 'type' exactly (e.g., 'from': 'CASE', 'to': 'COURT').
                         - For extraction patterns, 'entity_type' MUST match the entity 'type' exactly (e.g., 'CASE').
-                        - Generate at least 2 entities and 1 relationship.
+                        - Generate at least important entities and important relationship.
                         """
 
         # Get configured LLM

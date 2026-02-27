@@ -25,21 +25,21 @@ export default function Header({
 
   return (
     <div className="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          {/* Sidebar Toggle - Always visible to prevent layout shifts */}
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
+        <div className="flex items-center space-x-3 sm:space-x-5">
+          {/* Sidebar Toggle - Professional embedded look without breaking flow */}
           {showSidebarToggle && toggleSidebar ? (
             <button
               onClick={toggleSidebar}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              className="p-2 -ml-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
               title="Toggle Sidebar"
             >
-              <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
               </svg>
             </button>
           ) : (
-            <div className="w-9 h-9"></div>
+            <div className="w-10 h-10"></div>
           )}
           
           {/* Back Button */}

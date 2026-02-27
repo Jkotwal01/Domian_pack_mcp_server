@@ -35,6 +35,10 @@ class DomainConfig(Base):
     def __repr__(self):
         return f"<DomainConfig(id={self.id}, name={self.name}, owner_id={self.owner_user_id})>"
     
+    def update_counts(self):
+        """Alias for sync_from_config to maintain compatibility with chat service."""
+        return self.sync_from_config()
+    
     def sync_from_config(self):
         """Sync top-level fields and cached counts from config_json."""
         if self.config_json is None:

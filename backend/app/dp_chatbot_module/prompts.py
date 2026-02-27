@@ -1,13 +1,10 @@
 """Prompt templates for LLM nodes in the chatbot workflow."""
 
 INTENT_CLASSIFICATION_PROMPT = """You are analyzing a user request related to a domain configuration.
-
 Current Domain Context:
 {context}
-
 User Request:
 {user_message}
-
 Classify the intent as ONE of these operations:
 - update_domain_name, update_domain_description, update_domain_version
 - add_entity, update_entity_name, update_entity_type, update_entity_description, delete_entity
@@ -27,6 +24,7 @@ CRITICAL RULES FOR NAMING CONFLICTS:
 2. Instead, if they are providing new details, classify it as the corresponding 'update_' operation.
 3. If they are just stating it exists or asking about it, classify it as 'info_query'.
 4. This avoids 'duplicate name' errors during validation.
+5. IMPORTANT: Entities are linked by TYPE (uppercase snake_case), not by name. For relationships, always consider the entity type.
 
 Examples:
 - "list all entities" -> info_query
@@ -49,6 +47,7 @@ RULES:
 - Attributes: {{"name": str, "description": str, "examples": []}}
 - Extraction Patterns: valid Python REGEX.
 - CONFLICTS: If ADDING something that EXISTS in Context, use 'update' instead.
+- IMPORTANT: Relationships MUST use entity 'type' (e.g., STUDENT) for 'from' and 'to' fields, NOT the display name (e.g., Student).
 
 PatchOperation Schema:
 - type: e.g. 'add_entity', 'update_entity_name'

@@ -86,18 +86,18 @@ export default function InputArea({ onSendMessage, disabled }) {
             )}
 
             {/* Input area */}
-            <div className="relative bg-white border border-slate-200 rounded-xl shadow-lg focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-400 transition-all">
+            <div className="relative bg-white border border-slate-200/80 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/30 transition-all duration-300">
                 <textarea
                     ref={textareaRef}
                     rows={1}
-                    className="w-full py-3 pl-4 pr-24 bg-transparent border-none rounded-xl focus:ring-0 resize-none max-h-48 overflow-y-auto text-slate-700 placeholder-slate-400 leading-relaxed"
-                    placeholder="Message Claude..."
+                    className="w-full py-4 pl-5 pr-24 bg-transparent border-none rounded-2xl focus:ring-0 resize-none max-h-48 overflow-y-auto text-slate-700 placeholder-slate-400 leading-relaxed font-medium"
+                    placeholder="Describe your domain changes..."
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     disabled={disabled}
                 />
-                <div className="absolute right-2 bottom-2 flex items-center gap-1">
+                <div className="absolute right-3 bottom-3 flex items-center gap-2">
                     <FileUploadButton 
                         onFilesSelected={handleFilesSelected}
                         disabled={disabled}
@@ -105,14 +105,14 @@ export default function InputArea({ onSendMessage, disabled }) {
                     <button 
                         onClick={handleSubmit} 
                         disabled={(!input.trim() && attachedFiles.length === 0) || disabled}
-                        className={`p-2 rounded-lg transition-colors duration-200 ${
+                        className={`p-2.5 rounded-xl transition-all duration-300 ${
                            (input.trim() || attachedFiles.length > 0) && !disabled 
-                             ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm' 
-                             : 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                             ? 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-200 hover:-translate-y-0.5 active:translate-y-0' 
+                             : 'bg-slate-100 text-slate-300 cursor-not-allowed opacity-50'
                         }`}
                     >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19V5m0 0l-7 7m7-7l7 7" />
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19V5m0 0l-7 7m7-7l7 7" />
                         </svg>
                     </button>
                 </div>

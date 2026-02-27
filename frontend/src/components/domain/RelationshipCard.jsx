@@ -6,48 +6,63 @@ import ActionButtons from '../common/ActionButtons';
  */
 export default function RelationshipCard({ relationship, index, onEdit, onDelete }) {
   return (
-    <div className="p-4 border border-slate-100 rounded-xl bg-slate-50/30 space-y-3 group relative hover:shadow-md transition-shadow">
-      {/* Action buttons */}
-      <ActionButtons
-        onEdit={() => onEdit(index, relationship)}
-        onDelete={() => onDelete(index)}
-      />
+    <div className="p-6 border border-slate-100 rounded-3xl bg-white shadow-[0_4px_20px_rgba(0,0,0,0.01)] hover:shadow-[0_15px_40px_rgba(99,102,241,0.06)] transition-all duration-500 group relative hover:-translate-y-1">
+      
+      <div className="relative z-0">
+        {/* Relationship flow */}
+        <div className="flex items-center justify-center space-x-4 mb-5">
+            <div className="px-3 py-1.5 bg-indigo-50/50 rounded-xl border border-indigo-100/50">
+                <span className="text-[10px] font-black text-indigo-600 uppercase tracking-widest">
+                {relationship.from}
+                </span>
+            </div>
+            
+            <div className="flex flex-col items-center">
+                <div className="w-12 h-[2px] bg-linear-to-r from-indigo-200 via-violet-300 to-indigo-200"></div>
+                <div className="text-[8px] font-black text-slate-300 uppercase tracking-widest mt-1">FLOW</div>
+            </div>
 
-      {/* Relationship flow */}
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">
-          {relationship.from}
-        </span>
-        <svg className="w-4 h-4 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-        </svg>
-        <span className="text-[10px] font-black text-blue-600 uppercase tracking-wider">
-          {relationship.to}
-        </span>
+            <div className="px-3 py-1.5 bg-violet-50/50 rounded-xl border border-violet-100/50">
+                <span className="text-[10px] font-black text-violet-600 uppercase tracking-widest">
+                {relationship.to}
+                </span>
+            </div>
+        </div>
+
+        {/* Relationship name */}
+        <div className="text-center mb-4">
+            <h5 className="text-sm font-black text-slate-900 tracking-tight group-hover:text-indigo-600 transition-colors uppercase">
+                {relationship.name}
+            </h5>
+            {relationship.description && (
+                <p className="text-[11px] text-slate-500 mt-2 leading-relaxed font-semibold italic opacity-80">
+                    "{relationship.description}"
+                </p>
+            )}
+        </div>
+
+        {/* Attributes */}
+        {relationship.attributes && relationship.attributes.length > 0 && (
+          <div className="pt-4 border-t border-slate-50 mt-4 flex flex-col items-center">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2.5">Properties</p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {relationship.attributes.map((attr, idx) => (
+                <span key={idx} className="px-2.5 py-1 bg-slate-50 text-[10px] font-bold text-slate-500 border border-slate-100/50 rounded-lg hover:bg-white hover:shadow-sm transition-all">
+                  {typeof attr === 'string' ? attr : attr.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Relationship name */}
-      <h5 className="text-sm font-black text-slate-800 text-center tracking-tight">{relationship.name}</h5>
-
-      {/* Description */}
-      {relationship.description && (
-        <p className="text-[11px] text-slate-500 text-center leading-relaxed">
-          {relationship.description}
-        </p>
-      )}
-
-      {/* Attributes */}
-      {relationship.attributes && relationship.attributes.length > 0 && (
-        <div className="pt-2 border-t border-slate-100 mt-2">
-          <div className="flex flex-wrap gap-1.5 justify-center">
-            {relationship.attributes.map((attr, idx) => (
-              <span key={idx} className="px-2 py-0.5 bg-white text-[9px] font-bold text-slate-400 border border-slate-100 rounded-md">
-                {typeof attr === 'string' ? attr : attr.name}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Action buttons - positioned on top at end of DOM */}
+      <div className="absolute top-5 right-5 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0 z-20">
+        <ActionButtons
+          onEdit={() => onEdit(index, relationship)}
+          onDelete={() => onDelete(index)}
+        />
+      </div>
     </div>
   );
 }

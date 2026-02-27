@@ -163,13 +163,8 @@ def update_entity_name(config: Dict[str, Any], patch: PatchOperation) -> Dict[st
             old_name = entity["name"]
             entity["name"] = patch.new_value
             
-            # Update references in relationships
-            for rel in config.get("relationships", []):
-                if rel.get("from") == old_name:
-                    rel["from"] = patch.new_value
-                if rel.get("to") == old_name:
-                    rel["to"] = patch.new_value
-            
+            # Update: Entity names are for display, relationships link by TYPE.
+            # So rename no longer cascades to relationships.
             return config
     
     raise ValueError(f"Entity '{patch.target_name}' not found")
@@ -179,7 +174,15 @@ def update_entity_type(config: Dict[str, Any], patch: PatchOperation) -> Dict[st
     """Update entity type."""
     for entity in config.get("entities", []):
         if entity["name"] == patch.target_name:
+            old_type = entity["type"]
             entity["type"] = patch.new_value
+            
+            # Cascade type change to relationships
+            for rel in config.get("relationships", []):
+                if rel.get("from") == old_type:
+                    rel["from"] = patch.new_value
+                if rel.get("to") == old_type:
+                    rel["to"] = patch.new_value
             return config
     raise ValueError(f"Entity '{patch.target_name}' not found")
 
@@ -195,9 +198,16 @@ def update_entity_description(config: Dict[str, Any], patch: PatchOperation) -> 
 
 def delete_entity(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Delete entity and check for relationship references."""
-    # Check if entity is referenced in relationships
+    # Find the entity to get its type
+    target_entity = next((e for e in config.get("entities", []) if e["name"] == patch.target_name), None)
+    if not target_entity:
+        return config
+    
+    target_type = target_entity["type"]
+    
+    # Check if entity type is referenced in relationships
     for rel in config.get("relationships", []):
-        if rel.get("from") == patch.target_name or rel.get("to") == patch.target_name:
+        if rel.get("from") == target_type or rel.get("to") == target_type:
             raise ValueError(
                 f"Cannot delete entity '{patch.target_name}': "
                 f"referenced in relationship '{rel['name']}'"
@@ -375,12 +385,12 @@ def add_relationship(config: Dict[str, Any], patch: PatchOperation) -> Dict[str,
     if any(r["name"] == patch.payload["name"] for r in config["relationships"]):
         raise ValueError(f"Relationship '{patch.payload['name']}' already exists")
     
-    # Validate entity references
-    entity_names = {e["name"] for e in config.get("entities", [])}
-    if patch.payload["from"] not in entity_names:
-        raise ValueError(f"Source entity '{patch.payload['from']}' does not exist")
-    if patch.payload["to"] not in entity_names:
-        raise ValueError(f"Target entity '{patch.payload['to']}' does not exist")
+    # Validate entity references (by TYPE)
+    entity_types = {e["type"] for e in config.get("entities", [])}
+    if patch.payload["from"] not in entity_types:
+        raise ValueError(f"Source entity type '{patch.payload['from']}' does not exist")
+    if patch.payload["to"] not in entity_types:
+        raise ValueError(f"Target entity type '{patch.payload['to']}' does not exist")
     
     relationship = {
         "name": patch.payload["name"],
@@ -405,9 +415,9 @@ def update_relationship_name(config: Dict[str, Any], patch: PatchOperation) -> D
 
 def update_relationship_from(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Update relationship source entity."""
-    entity_names = {e["name"] for e in config.get("entities", [])}
-    if patch.new_value not in entity_names:
-        raise ValueError(f"Entity '{patch.new_value}' does not exist")
+    entity_types = {e["type"] for e in config.get("entities", [])}
+    if patch.new_value not in entity_types:
+        raise ValueError(f"Entity type '{patch.new_value}' does not exist")
     
     for rel in config.get("relationships", []):
         if rel["name"] == patch.target_name:
@@ -418,9 +428,9 @@ def update_relationship_from(config: Dict[str, Any], patch: PatchOperation) -> D
 
 def update_relationship_to(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Update relationship target entity."""
-    entity_names = {e["name"] for e in config.get("entities", [])}
-    if patch.new_value not in entity_names:
-        raise ValueError(f"Entity '{patch.new_value}' does not exist")
+    entity_types = {e["type"] for e in config.get("entities", [])}
+    if patch.new_value not in entity_types:
+        raise ValueError(f"Entity type '{patch.new_value}' does not exist")
     
     for rel in config.get("relationships", []):
         if rel["name"] == patch.target_name:

@@ -9,7 +9,8 @@ from app.schemas.chat import (
     ChatSessionResponse,
     ChatMessageResponse,
     ChatRequest,
-    ChatResponse
+    ChatResponse,
+    ChatSessionStats
 )
 from app.services.chat_service import ChatService
 from app.api.deps import get_current_user
@@ -41,6 +42,28 @@ async def create_session(
         current_user
     )
     return session
+
+
+@router.get("/sessions", response_model=List[ChatSessionResponse])
+async def list_sessions(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 50,
+    offset: int = 0
+):
+    """
+    Get all chat sessions for the current user.
+    
+    Args:
+        current_user: Current authenticated user
+        db: Database session
+        limit: Maximum number of sessions
+        offset: Pagination offset
+        
+    Returns:
+        List of chat sessions
+    """
+    return ChatService.get_sessions(db, current_user, limit, offset)
 
 
 @router.get("/sessions/{session_id}", response_model=ChatSessionResponse)
@@ -150,3 +173,28 @@ async def delete_session(
     """
     ChatService.delete_session(db, session_id, current_user)
     return {"message": "Session and messages deleted successfully"}
+
+
+@router.get("/sessions/{session_id}/stats", response_model=ChatSessionStats)
+async def get_session_stats(
+    session_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Get LLM statistics for a specific chat session.
+    
+    Args:
+        session_id: Session UUID
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        Chat session LLM statistics
+    """
+    session = ChatService.get_session(db, session_id, current_user)
+    return {
+        "total_llm_calls": session.total_llm_calls,
+        "total_input_tokens": session.total_input_tokens,
+        "total_output_tokens": session.total_output_tokens
+    }

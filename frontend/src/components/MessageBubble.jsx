@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import FileAttachment from './FileAttachment';
 import ToolCallDisplay from './ToolCallDisplay';
 import IntentConfirmation from './IntentConfirmation';
@@ -6,125 +8,102 @@ import DiffExplorer from './DiffExplorer';
 export default function MessageBubble({ message, onConfirmIntent }) {
   const isAi = message.role === "assistant";
 
-  // Simple markdown-like rendering
-  const renderContent = (content) => {
-    if (!content) return null;
-
-    // Split by code blocks
-    const parts = content.split(/```(\w+)?\n([\s\S]*?)```/g);
-    const elements = [];
-
-    for (let i = 0; i < parts.length; i++) {
-        const part = parts[i];
-        if (!part) continue;
-
-        if (i % 3 === 0) {
-            // Regular text
-            const lines = part.split('\n');
-            const nodes = lines.map((line, idx) => {
-                // List items
-                if (line.match(/^[-*+]\s/)) {
-                    return (
-                        <div key={`${i}-li-${idx}`} className="flex gap-2 ml-1">
-                            <span className="text-indigo-600 font-bold">•</span>
-                            <span>{line.replace(/^[-*+]\s/, '')}</span>
-                        </div>
-                    );
-                }
-                // Numbered lists
-                if (line.match(/^\d+\.\s/)) {
-                    return (
-                        <div key={`${i}-num-${idx}`} className="flex gap-2 ml-1">
-                            <span className="text-indigo-600 font-medium min-w-6">{line.match(/^\d+\./)[0]}</span>
-                            <span>{line.replace(/^\d+\.\s/, '')}</span>
-                        </div>
-                    );
-                }
-                // Headers
-                if (line.match(/^#{1,6}\s/)) {
-                    const level = line.match(/^#{1,6}/)[0].length;
-                    const text = line.replace(/^#{1,6}\s/, '');
-                    const sizes = { 1: 'text-xl', 2: 'text-lg', 3: 'text-base' };
-                    return <div key={`${i}-h-${idx}`} className={`font-bold ${sizes[level] || 'text-base'} mt-4 mb-2 first:mt-0`}>{text}</div>;
-                }
-                // Bold
-                if (line.match(/\*\*(.*?)\*\*/)) {
-                     const parts = line.split(/(\*\*.*?\*\*)/);
-                     return (
-                        <div key={`${i}-bold-${idx}`} className="min-h-[1.5em]">
-                            {parts.map((p, pIdx) => {
-                                if (p.startsWith('**') && p.endsWith('**')) {
-                                    return <strong key={pIdx}>{p.slice(2, -2)}</strong>;
-                                }
-                                return p;
-                            })}
-                        </div>
-                     );
-                }
-                
-                return line ? <div key={`${i}-p-${idx}`} className="min-h-[1.5em]">{line}</div> : <div key={`${i}-br-${idx}`} className="h-2"></div>;
-            });
-            elements.push(<div key={`block-${i}`} className="space-y-1">{nodes}</div>);
-        } else if (i % 3 === 2) {
-            // Code block content (captured group 2)
-            const language = parts[i-1] || 'text'; // captured group 1
-            elements.push(
-                <div key={`code-${i}`} className="my-3 rounded-lg overflow-hidden border border-slate-700/50 shadow-sm">
-                    <div className="flex items-center justify-between px-3 py-1.5 bg-slate-800 text-slate-300 border-b border-slate-700">
-                        <span className="text-xs font-mono uppercase tracking-wider opacity-75">{language}</span>
-                        <button
-                            onClick={() => navigator.clipboard.writeText(part)}
-                            className="text-[10px] hover:bg-slate-700 px-2 py-0.5 rounded transition-colors"
-                        >
-                            COPY
-                        </button>
-                    </div>
-                    <pre className="p-3 bg-slate-900 overflow-x-auto">
-                        <code className="text-sm font-mono text-emerald-400 leading-relaxed font-normal">
-                            {part}
-                        </code>
-                    </pre>
-                </div>
-            );
-        }
-    }
-    return elements;
+  // Custom components for ReactMarkdown to match the app's aesthetic
+  const markdownComponents = {
+    // Custom styling for lists
+    ul: ({ children }) => <ul className="space-y-2 my-3 ml-1">{children}</ul>,
+    ol: ({ children }) => <ol className="list-decimal space-y-2 my-3 ml-5">{children}</ol>,
+    li: ({ children }) => (
+      <li className="flex gap-2 items-start group/li">
+        <span className="text-indigo-600 font-bold mt-1.5 shrink-0 text-xs transition-transform group-hover/li:scale-125">•</span>
+        <span className="flex-1">{children}</span>
+      </li>
+    ),
+    // Headers
+    h1: ({ children }) => <h1 className="text-xl font-black text-slate-900 mt-6 mb-3 first:mt-0 tracking-tight">{children}</h1>,
+    h2: ({ children }) => <h2 className="text-lg font-bold text-slate-800 mt-5 mb-2 first:mt-0 tracking-tight">{children}</h2>,
+    h3: ({ children }) => <h3 className="text-base font-bold text-slate-800 mt-4 mb-2 first:mt-0">{children}</h3>,
+    // Paragraphs and bold
+    p: ({ children }) => <p className="mb-3 last:mb-0 leading-relaxed">{children}</p>,
+    strong: ({ children }) => <strong className="font-extrabold text-indigo-900 bg-indigo-50/50 px-1 rounded-sm">{children}</strong>,
+    // Code blocks
+    code: ({ node, inline, className, children, ...props }) => {
+      const match = /language-(\w+)/.exec(className || '');
+      return !inline && match ? (
+        <div className="my-4 rounded-xl overflow-hidden border border-slate-700/50 shadow-xl group/code">
+            <div className="flex items-center justify-between px-4 py-2 bg-slate-800 text-slate-300 border-b border-slate-700">
+                <span className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80">{match[1]}</span>
+                <button
+                    onClick={() => navigator.clipboard.writeText(String(children).replace(/\n$/, ''))}
+                    className="text-[10px] font-bold hover:bg-slate-700/80 px-2.5 py-1 rounded-md transition-all active:scale-95"
+                >
+                    COPY
+                </button>
+            </div>
+            <pre className="p-4 bg-slate-900 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-700">
+                <code className="text-sm font-mono text-emerald-400 leading-relaxed block" {...props}>
+                    {children}
+                </code>
+            </pre>
+        </div>
+      ) : (
+        <code className="bg-slate-100 text-indigo-600 px-1.5 py-0.5 rounded font-mono text-[0.9em] font-semibold border border-indigo-50" {...props}>
+          {children}
+        </code>
+      );
+    },
+    // Links
+    a: ({ href, children }) => (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="text-indigo-600 font-bold hover:underline decoration-2 underline-offset-2">
+        {children}
+      </a>
+    ),
+    // Blockquotes
+    blockquote: ({ children }) => (
+      <blockquote className="border-l-4 border-indigo-200 pl-4 py-1 my-4 italic text-slate-600 bg-indigo-50/30 rounded-r-lg">
+        {children}
+      </blockquote>
+    )
   };
 
   return (
     <div className={`flex w-full group ${isAi ? "justify-start" : "justify-end"} animate-fadeIn`}>
-      <div className={`flex max-w-[95%] sm:max-w-full md:max-w-[85%] ${isAi ? "flex-row" : "flex-row-reverse"} items-start gap-2 sm:gap-3`}>
+      <div className={`flex max-w-[95%] sm:max-w-full md:max-w-[85%] ${isAi ? "flex-row" : "flex-row-reverse"} items-start gap-2 sm:gap-4`}>
         {/* Avatar */}
-        <div className={`shrink-0 w-8 h-8 rounded-xl flex items-center justify-center text-sm font-semibold transition-transform duration-300 group-hover:scale-110 ${
-            isAi ? "bg-linear-to-br from-indigo-500 to-purple-600 text-white shadow-lg shadow-indigo-100" : "bg-linear-to-br from-slate-700 to-slate-900 text-white shadow-lg shadow-slate-200"
+        <div className={`shrink-0 w-9 h-9 rounded-2xl flex items-center justify-center text-base font-semibold transition-all duration-500 group-hover:rotate-12 group-hover:scale-110 shadow-md ${
+            isAi 
+              ? "bg-linear-to-br from-indigo-500 via-indigo-600 to-purple-700 text-white shadow-indigo-200/50 ring-2 ring-white" 
+              : "bg-linear-to-br from-slate-700 to-slate-900 text-white shadow-slate-200/50 ring-2 ring-white"
         }`}>
           {isAi ? "🤖" : "👤"}
         </div>
 
         {/* Content Container */}
         <div className={`flex flex-col ${isAi ? "items-start" : "items-end"} w-full min-w-0`}>
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">
-            {isAi ? "Assistant" : "You"}
-          </span>
+          <div className="flex items-center space-x-2 mb-1.5 px-1">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-[0.25em]">
+              {isAi ? "Domain Core AI" : "Architect"}
+            </span>
+          </div>
 
           <div
-            className={`px-5 py-4 shadow-sm transition-all duration-300 hover:shadow-md max-w-full overflow-hidden ${
+            className={`px-6 py-5 shadow-sm transition-all duration-500 hover:shadow-xl max-w-full overflow-hidden border ${
               isAi
-                ? "bg-linear-to-br from-indigo-50/80 to-indigo-100/50 text-slate-800 border border-indigo-100 rounded-2xl rounded-tl-none shadow-[0_4px_15px_rgba(79,70,229,0.05)]"
-                : "bg-slate-900 text-white rounded-2xl rounded-tr-none shadow-lg shadow-slate-100"
+                ? "bg-white text-slate-800 border-indigo-100 rounded-3xl rounded-tl-none shadow-[0_10px_40px_rgba(79,70,229,0.06)]"
+                : "bg-slate-900 text-white border-slate-800 rounded-3xl rounded-tr-none shadow-2xl shadow-slate-200/50"
             }`}
           >
             {/* AI Reasoning / Thought Process */}
             {isAi && message.reasoning && (
-              <div className="mb-4 p-4 bg-white/60 border border-indigo-100/50 rounded-xl relative overflow-hidden group/reasoning">
-                <div className="absolute top-0 left-0 w-1 h-full bg-indigo-400 opacity-40"></div>
-                <div className="flex items-start space-x-3">
-                  <span className="text-lg mt-0.5 filter drop-shadow-sm">💭</span>
-                  <div>
-                    <h5 className="text-[9px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">
-                      Thought Process
+              <div className="mb-5 p-4.5 bg-indigo-50/40 border border-indigo-100/50 rounded-2xl relative overflow-hidden group/reasoning hover:bg-indigo-50/60 transition-colors">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-linear-to-b from-indigo-400 to-purple-500 opacity-60"></div>
+                <div className="flex items-start space-x-4">
+                  <span className="text-xl mt-0.5 filter drop-shadow-sm select-none">🧠</span>
+                  <div className="flex-1">
+                    <h5 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.3em] mb-1.5 opacity-80">
+                      Processing Context
                     </h5>
-                    <p className="text-[13px] text-indigo-700 leading-relaxed font-medium italic">
+                    <p className="text-[13.5px] text-indigo-800/90 leading-relaxed font-medium">
                       {message.reasoning}
                     </p>
                   </div>
@@ -132,10 +111,15 @@ export default function MessageBubble({ message, onConfirmIntent }) {
               </div>
             )}
 
-            {/* Message content */}
+            {/* Message content with ReactMarkdown */}
             {message.content && (
-              <div className={`whitespace-pre-wrap font-normal prose prose-sm max-w-none break-words ${isAi ? "text-slate-700" : "text-slate-100"}`}>
-                {renderContent(message.content)}
+              <div className={`markdown-content prose prose-slate prose-sm max-w-none break-words ${isAi ? "text-slate-700" : "text-white"}`}>
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]} 
+                  components={markdownComponents}
+                >
+                  {message.content}
+                </ReactMarkdown>
               </div>
             )}
 

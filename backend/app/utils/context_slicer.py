@@ -94,9 +94,9 @@ def format_minimal_context(
             if entities:
                 return json.dumps({"entity": entities[0]}, indent=2)
         
-        # Fallback: return entity names only
-        entity_names = [e["name"] for e in config.get("entities", [])]
-        return json.dumps({"entity_names": entity_names})
+        # Fallback: return entity info
+        entities = [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])]
+        return json.dumps({"entities": entities}, indent=2)
     
     # Relationship operations
     if "relationship" in intent:
@@ -104,19 +104,19 @@ def format_minimal_context(
             relationships = get_relevant_relationships(config, relationship_names=[target_name])
             if relationships:
                 # Include entity names for reference validation
-                entity_names = [e["name"] for e in config.get("entities", [])]
+                entities = [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])]
                 return json.dumps({
                     "relationship": relationships[0],
-                    "available_entities": entity_names
+                    "available_entities": entities
                 }, indent=2)
         
-        # Fallback: return relationship and entity names
+        # Fallback: return relationship and entity info
         rel_names = [r["name"] for r in config.get("relationships", [])]
-        entity_names = [e["name"] for e in config.get("entities", [])]
+        entities = [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])]
         return json.dumps({
             "relationship_names": rel_names,
-            "entity_names": entity_names
-        })
+            "entities": entities
+        }, indent=2)
     
     # Extraction pattern operations
     if "extraction_pattern" in intent:
@@ -141,14 +141,14 @@ def format_minimal_context(
             return json.dumps({
                 "target": entities[0] if entities else (relationships[0] if relationships else None),
                 "summary": {
-                    "entity_names": [e["name"] for e in config.get("entities", [])],
+                    "entities": [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])],
                     "relationship_names": [r["name"] for r in config.get("relationships", [])]
                 }
             }, indent=2)
 
     # Default: return summary only
     return json.dumps({
-        "entity_names": [e["name"] for e in config.get("entities", [])],
+        "entities": [{"name": e["name"], "type": e["type"]} for e in config.get("entities", [])],
         "relationship_names": [r["name"] for r in config.get("relationships", [])]
     })
 

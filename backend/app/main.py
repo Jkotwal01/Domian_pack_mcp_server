@@ -24,40 +24,19 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    """Print startup banner with LLM monitoring info and load stats."""
+    """Print startup banner."""
     print("\n" + "="*60)
     print("🚀 Domain Pack Generator API Started")
     print("="*60)
-    
-    # Load persistent stats
-    try:
-        from app.database import SessionLocal
-        from app.models.llm_usage import LLMUsage
-        db = SessionLocal()
-        usage = db.query(LLMUsage).first()
-        if usage:
-            llm_monitor.total_calls = usage.total_calls
-            llm_monitor.total_input_tokens = usage.total_input_tokens
-            llm_monitor.total_output_tokens = usage.total_output_tokens
-            print(f"📊 Loaded Persistent Stats: Calls={usage.total_calls}, Tokens={usage.total_input_tokens + usage.total_output_tokens}")
-        db.close()
-    except Exception as e:
-        print(f"⚠️ Failed to load persistent LLM stats: {e}")
-
-    print("📊 LLM API Monitoring: ENABLED")
-    print("   - All LLM calls will be tracked")
-    print("   - Response times will be measured")
-    print("   - Stats available at /stats endpoint")
     print("="*60 + "\n")
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    """Print monitoring summary on shutdown."""
+    """Print shutdown info."""
     print("\n" + "="*60)
-    print("🛑 Shutting Down - LLM Monitoring Summary")
+    print("🛑 Shutting Down")
     print("="*60)
-    llm_monitor.print_summary()
 
 
 @app.get("/")
@@ -74,15 +53,6 @@ async def root():
 async def health_check():
     """Health check for monitoring."""
     return {"status": "healthy"}
-
-
-@app.get("/stats")
-async def get_llm_stats():
-    """Get LLM API call statistics."""
-    return {
-        "llm_monitoring": llm_monitor.get_stats(),
-        "message": "Real-time LLM API statistics"
-    }
 
 
 # Import and include routers

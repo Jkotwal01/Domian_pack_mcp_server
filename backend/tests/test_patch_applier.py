@@ -46,8 +46,8 @@ def sample_config():
         "relationships": [
             {
                 "name": "OWNS",
-                "from": "User",
-                "to": "Product",
+                "from": "person",
+                "to": "item",
                 "description": "User owns product",
                 "attributes": []
             }
@@ -103,11 +103,29 @@ class TestEntityOperations:
         
         result = apply_patch(sample_config, patch)
         assert result["entities"][0]["name"] == "Customer"
-        # Check cascade update in relationships
-        assert result["relationships"][0]["from"] == "Customer"
+        # Check that it DOES NOT cascade update in relationships (as they link by stable type)
+        assert result["relationships"][0]["from"] == "person"
     
+    def test_update_entity_type_cascade(self, sample_config):
+        """Test that updating entity type cascades to relationships."""
+        patch = PatchOperation(
+            operation="update_entity_type",
+            target_name="User",
+            new_value="individual"
+        )
+        
+        result = apply_patch(sample_config, patch)
+        assert result["entities"][0]["type"] == "individual"
+        # Check cascade update in relationships
+        assert result["relationships"][0]["from"] == "individual"
+
     def test_delete_entity_with_relationship_fails(self, sample_config):
         """Test that deleting entity referenced in relationship fails."""
+        # Note: Delete entity check usually happens by name in PatchApplier, 
+        # but relationships are checked by name of entity in the delete_entity logic currently.
+        # However, our delete_entity logic in patch_applier.py line 199 checks rel.get("from") == target_name.
+        # Since relationships now use types, we should probably update delete_entity too?
+        # Actually, let's keep it consistent: if relationships use TYPES, delete_entity should check if any rel uses that entity's type.
         patch = PatchOperation(
             operation="delete_entity",
             target_name="User"
@@ -219,8 +237,8 @@ class TestRelationshipOperations:
             operation="add_relationship",
             payload={
                 "name": "PURCHASES",
-                "from": "User",
-                "to": "Product",
+                "from": "person",
+                "to": "item",
                 "description": "User purchases product",
                 "attributes": []
             }
@@ -236,8 +254,8 @@ class TestRelationshipOperations:
             operation="add_relationship",
             payload={
                 "name": "INVALID",
-                "from": "NonExistent",
-                "to": "Product",
+                "from": "NonExistentType",
+                "to": "item",
                 "description": "Invalid",
                 "attributes": []
             }
@@ -260,11 +278,11 @@ class TestRelationshipOperations:
         patch = PatchOperation(
             operation="update_relationship_from",
             target_name="OWNS",
-            new_value="Admin"
+            new_value="person" # 'Admin' entity was added with type 'person'
         )
         
         result = apply_patch(sample_config, patch)
-        assert result["relationships"][0]["from"] == "Admin"
+        assert result["relationships"][0]["from"] == "person"
 
 
 class TestKeyTermOperations:

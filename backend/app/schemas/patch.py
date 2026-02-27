@@ -16,6 +16,7 @@ class StrictPayloadSchema(BaseModel):
     description: Optional[str] = None
     attributes: Optional[List[StrictAttributeSchema]] = None
     synonyms: Optional[List[str]] = None
+    examples: Optional[List[str]] = None
     
     # Relationship fields (using aliases for valid JSON keys)
     from_entity: Optional[str] = Field(default=None, alias="from")

@@ -73,6 +73,31 @@ class ChatService:
         return new_session
     
     @staticmethod
+    def get_sessions(
+        db: Session,
+        user: User,
+        limit: int = 50,
+        offset: int = 0
+    ) -> List[ChatSession]:
+        """
+        Get all chat sessions for a user.
+        
+        Args:
+            db: Database session
+            user: Current user
+            limit: Maximum number of sessions
+            offset: Offset for pagination
+            
+        Returns:
+            List of chat sessions
+        """
+        return db.query(ChatSession).filter(
+            ChatSession.user_id == user.id
+        ).order_by(
+            ChatSession.last_activity_at.desc()
+        ).limit(limit).offset(offset).all()
+    
+    @staticmethod
     def get_session(db: Session, session_id: UUID, user: User) -> ChatSession:
         """
         Get a chat session by ID.
@@ -192,7 +217,7 @@ class ChatService:
             if user_msg_lower in ["yes", "confirm", "y", "apply", "ok"]:
                 # Apply pending patch
                 domain.config_json = session.session_metadata["pending_updated_config"]
-                domain.update_counts()
+                domain.sync_from_config()
                 session.session_metadata = {}
                 db.commit()
                 

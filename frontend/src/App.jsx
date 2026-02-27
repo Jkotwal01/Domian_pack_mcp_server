@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import ChatArea from './components/ChatArea';
 import Dashboard from './pages/Dashboard';
 import ConfigView from './pages/ConfigView';
+import Monitoring from './pages/Monitoring';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -147,6 +148,16 @@ function AppContent() {
             path="/dashboard" 
             element={
               <Dashboard 
+                sidebarOpen={sidebarOpen}
+                toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+              />
+            } 
+          />
+
+          <Route 
+            path="/monitoring" 
+            element={
+              <Monitoring 
                 sidebarOpen={sidebarOpen}
                 toggleSidebar={() => setSidebarOpen(!sidebarOpen)}
               />

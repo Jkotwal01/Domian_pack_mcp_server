@@ -22,6 +22,7 @@ class ChatSessionResponse(BaseModel):
     total_llm_calls: int = 0
     total_input_tokens: int = 0
     total_output_tokens: int = 0
+    session_metadata: Dict[str, Any] = {}
     
     class Config:
         from_attributes = True
@@ -59,3 +60,13 @@ class ChatResponse(BaseModel):
     proposed_patch: Optional[Dict[str, Any]] = None # Align with state name
     diff_preview: Optional[str] = None
     updated_config: Optional[Dict[str, Any]] = None
+
+
+class ChatSessionStats(BaseModel):
+    """Schema for chat session LLM statistics."""
+    total_llm_calls: int = 0
+    total_input_tokens: int = 0
+    total_output_tokens: int = 0
+    
+    class Config:
+        from_attributes = True
