@@ -263,29 +263,51 @@ class ChatService:
         # Execute graph with monitoring and checkpointer config
         from langchain_community.callbacks import get_openai_callback
         from app.utils.llm_monitor import llm_monitor
+        from app.models.node_call_log import NodeCallLog
         
         # Configure thread for checkpointer
         config = {"configurable": {"thread_id": str(session_id)}}
+        
+        # Turn number = number of LLM calls already made in this session before this message
+        current_turn = session.total_llm_calls
         
         try:
             with get_openai_callback() as cb:
                 # Use thread-aware invocation
                 final_state = domain_graph.invoke(initial_state, config=config)
                 
-                # Update monitoring stats
+                # Update global monitoring stats
                 llm_monitor.update_tokens(
                     input_tokens=cb.prompt_tokens,
                     output_tokens=cb.completion_tokens,
                     db=db
                 )
                 
-                # Update session stats
+                # Update session-level totals
                 session.total_llm_calls += cb.successful_requests
                 session.total_input_tokens += cb.prompt_tokens
                 session.total_output_tokens += cb.completion_tokens
+                
+                # Persist per-node call logs
+                node_logs = final_state.get("node_call_logs") or []
+                for log_entry in node_logs:
+                    node_log = NodeCallLog(
+                        session_id=session_id,
+                        turn=current_turn,
+                        node_name=log_entry["node_name"],
+                        input_tokens=log_entry["input_tokens"],
+                        output_tokens=log_entry["output_tokens"],
+                        response_time_ms=log_entry["response_time_ms"],
+                        intent=log_entry.get("intent"),
+                    )
+                    db.add(node_log)
+                
                 db.commit()
                 
-                print(f"📊 Session {session_id} Stats Updated: Calls={session.total_llm_calls}, Tokens={session.total_input_tokens + session.total_output_tokens}")
+                print(f"📊 Session {session_id} | Turn {current_turn} | "
+                      f"Calls={session.total_llm_calls}, "
+                      f"Tokens={session.total_input_tokens + session.total_output_tokens} | "
+                      f"Nodes logged: {len(node_logs)}")
         except Exception as e:
             print(f"Error during graph execution or monitoring: {e}")
             raise e

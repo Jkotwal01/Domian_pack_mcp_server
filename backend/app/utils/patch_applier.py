@@ -132,13 +132,19 @@ def update_domain_version(config: Dict[str, Any], patch: PatchOperation) -> Dict
 
 def add_entity(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Add new entity with guardrails."""
+    if not patch.payload:
+        raise ValueError(
+            "'add_entity' requires a 'payload' object with at least 'name', 'type', and 'description'. "
+            "Received no payload."
+        )
+
     if "entities" not in config:
         config["entities"] = []
-    
+
     # Check if entity already exists
     if any(e["name"] == patch.payload["name"] for e in config["entities"]):
         raise ValueError(f"Entity '{patch.payload['name']}' already exists")
-    
+
     # Ensure required fields
     entity = {
         "name": patch.payload["name"],
@@ -147,7 +153,7 @@ def add_entity(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
         "attributes": patch.payload.get("attributes", []),
         "synonyms": patch.payload.get("synonyms", [])
     }
-    
+
     config["entities"].append(entity)
     return config
 
@@ -222,26 +228,51 @@ def delete_entity(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, An
 # ============================================================================
 
 def add_entity_attribute(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
-    """Add attribute to entity."""
+    """Add attribute to entity.
+    
+    Handles two LLM generation patterns:
+    1. Full payload:  { parent_name, payload: { name, description, examples } }
+    2. Flat style:    { parent_name, new_value: "attr_name" }  (no payload object)
+    """
     for entity in config.get("entities", []):
         if entity["name"] == patch.parent_name:
-            # Check for duplicate
-            if any(a["name"] == patch.payload["name"] for a in entity.get("attributes", [])):
-                raise ValueError(
-                    f"Attribute '{patch.payload['name']}' already exists in {patch.parent_name}"
-                )
-            
             if "attributes" not in entity:
                 entity["attributes"] = []
-            
+
+            # Resolve attribute fields with safe payload fallback
+            if patch.payload:
+                attr_name = patch.payload["name"]
+                attr_desc = patch.payload.get("description", "")
+                attr_examples = patch.payload.get("examples", [])
+            else:
+                # LLM used flat style: parent_name + new_value (or attribute_name)
+                attr_name = (
+                    patch.attribute_name
+                    or (str(patch.new_value) if patch.new_value is not None else None)
+                )
+                attr_desc = ""
+                attr_examples = []
+
+            if not attr_name or str(attr_name).strip() in ("", "None"):
+                raise ValueError(
+                    "Attribute name is required for 'add_entity_attribute' but was not provided. "
+                    "Specify 'payload.name' or 'new_value'."
+                )
+
+            # Check for duplicate
+            if any(a["name"] == attr_name for a in entity.get("attributes", [])):
+                raise ValueError(
+                    f"Attribute '{attr_name}' already exists in '{patch.parent_name}'"
+                )
+
             attribute = {
-                "name": patch.payload["name"],
-                "description": patch.payload.get("description", ""),
-                "examples": patch.payload.get("examples", [])
+                "name": attr_name,
+                "description": attr_desc,
+                "examples": attr_examples,
             }
             entity["attributes"].append(attribute)
             return config
-    
+
     raise ValueError(f"Entity '{patch.parent_name}' not found")
 
 
@@ -378,20 +409,26 @@ def delete_entity_synonym(config: Dict[str, Any], patch: PatchOperation) -> Dict
 
 def add_relationship(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Add new relationship with validation."""
+    if not patch.payload:
+        raise ValueError(
+            "'add_relationship' requires a 'payload' object with 'name', 'from', 'to', and 'description'. "
+            "Received no payload."
+        )
+
     if "relationships" not in config:
         config["relationships"] = []
-    
+
     # Check if relationship already exists
     if any(r["name"] == patch.payload["name"] for r in config["relationships"]):
         raise ValueError(f"Relationship '{patch.payload['name']}' already exists")
-    
+
     # Validate entity references (by TYPE)
     entity_types = {e["type"] for e in config.get("entities", [])}
     if patch.payload["from"] not in entity_types:
         raise ValueError(f"Source entity type '{patch.payload['from']}' does not exist")
     if patch.payload["to"] not in entity_types:
         raise ValueError(f"Target entity type '{patch.payload['to']}' does not exist")
-    
+
     relationship = {
         "name": patch.payload["name"],
         "from": patch.payload["from"],
@@ -399,7 +436,7 @@ def add_relationship(config: Dict[str, Any], patch: PatchOperation) -> Dict[str,
         "description": patch.payload.get("description", ""),
         "attributes": patch.payload.get("attributes", [])
     }
-    
+
     config["relationships"].append(relationship)
     return config
 
@@ -582,9 +619,15 @@ def delete_relationship_attribute_example(config: Dict[str, Any], patch: PatchOp
 
 def add_extraction_pattern(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Add extraction pattern."""
+    if not patch.payload:
+        raise ValueError(
+            "'add_extraction_pattern' requires a 'payload' object with 'pattern', 'entity_type', and 'attribute'. "
+            "Received no payload."
+        )
+
     if "extraction_patterns" not in config:
         config["extraction_patterns"] = []
-    
+
     pattern = {
         "pattern": patch.payload["pattern"],
         "entity_type": patch.payload["entity_type"],
@@ -592,7 +635,7 @@ def add_extraction_pattern(config: Dict[str, Any], patch: PatchOperation) -> Dic
         "extract_full_match": patch.payload.get("extract_full_match", True),
         "confidence": patch.payload.get("confidence", 0.9)
     }
-    
+
     config["extraction_patterns"].append(pattern)
     return config
 

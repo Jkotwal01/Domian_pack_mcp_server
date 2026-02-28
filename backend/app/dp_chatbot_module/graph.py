@@ -25,8 +25,11 @@ def route_after_validation(state: AgentState) -> str:
 
 
 def route_after_intent(state: AgentState) -> str:
-    """Route to patching logic or directly to response for info_query."""
-    intent = state.get("intent")
+    """Route to patching logic or directly to response for info_query / errors."""
+    # If classification failed or intent is missing, go to error response
+    if state.get("error_message") or not state.get("intent"):
+        return "generate_response"
+    intent = state["intent"]
     if intent == "info_query":
         return "generate_response"
     elif intent == "general_query":

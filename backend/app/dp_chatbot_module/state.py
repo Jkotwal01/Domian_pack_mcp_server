@@ -15,6 +15,7 @@ class AgentState(TypedDict):
     intent: Optional[str]  # Detected operation intent
     target_entity: Optional[str]  # Target entity/relationship name
     proposed_patch: Optional[Dict[str, Any]]  # Generated patch operation
+    node_call_logs: Optional[List[Dict[str, Any]]]  # Per-node LLM call metrics
     
     # Validation
     validation_result: Optional[Dict[str, Any]]  # Validation outcome
@@ -60,6 +61,7 @@ def create_initial_state(
         "intent": None,
         "target_entity": None,
         "proposed_patch": None,
+        "node_call_logs": [],
         "validation_result": None,
         "updated_config": None,
         "needs_confirmation": False,

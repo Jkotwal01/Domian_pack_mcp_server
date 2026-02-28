@@ -295,6 +295,14 @@ export async function getSessionStats(sessionId) {
   }
 }
 
+export async function getNodeCallLogs(sessionId) {
+  try {
+    return await apiFetch(`/chat/sessions/${sessionId}/node-calls`);
+  } catch (error) {
+    return [];
+  }
+}
+
 export function getBackendUrl() {
   return BACKEND_URL;
 }

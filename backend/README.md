@@ -207,3 +207,29 @@ Use these payloads for testing the API via Postman, cURL, or other tools. All pr
 1. **Register**: Create a user account at `/auth/signup`.
 2. **Login**: Authenticate at `/auth/login` to receive your JWT token.
 3. **Configure**: Start managing your domain packs or use the chat interface to build one conversationally! 🚀
+
+---
+
+## 🚀 Future Optimization: Reducing LLM Token Overhead
+
+**Goal**: Reduce the `generate_patch` node's input token usage (currently ~1,676 tokens) by roughly 40-50% by splitting the monolithic 59-operation schema into smaller, specialized models.
+
+### Specialized Patch Schema Optimization Plan
+
+#### 1. Refactor Schemas in `app/schemas/patch.py`
+Break down `PatchOperation` into specialized sub-models:
+- **DomainPatchOperation**: 3 top-level operations.
+- **EntityPatchOperation**: Operations for entities, attributes, synonyms, and examples.
+- **RelationshipPatchOperation**: Operations for relationships and their attributes.
+- **ExtractionPatchOperation**: Operations for regex patterns.
+- **KeyTermPatchOperation**: Operations for vocabulary.
+
+#### 2. Update `generate_patch_node` in `app/dp_chatbot_module/nodes.py`
+1. Read `state["intent"]`.
+2. Map the intent to the corresponding specialized schema (e.g., `entity_operation` -> `EntityPatchList`).
+3. Call `llm.with_structured_output(SelectedModel)`.
+4. **Benefit**: The LLM receives a metadata schema for 3-15 operations instead of 59, saving hundreds of tokens per call.
+
+#### 3. Verification
+- **Token Count**: Compare `generate_patch` node tokens in the Monitoring dashboard before and after. Target: 500-700 tokens saved.
+- **Functional Test**: Verify all operations (add/delete/edit) still function correctly across all categories.

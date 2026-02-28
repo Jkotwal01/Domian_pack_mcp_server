@@ -70,3 +70,19 @@ class ChatSessionStats(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+class NodeCallLogResponse(BaseModel):
+    """Schema for a single per-node LLM call log entry."""
+    id: UUID4
+    session_id: UUID4
+    turn: int
+    node_name: str
+    input_tokens: int
+    output_tokens: int
+    response_time_ms: float
+    intent: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

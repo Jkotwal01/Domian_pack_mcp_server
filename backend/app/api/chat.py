@@ -10,7 +10,8 @@ from app.schemas.chat import (
     ChatMessageResponse,
     ChatRequest,
     ChatResponse,
-    ChatSessionStats
+    ChatSessionStats,
+    NodeCallLogResponse
 )
 from app.services.chat_service import ChatService
 from app.api.deps import get_current_user
@@ -198,3 +199,29 @@ async def get_session_stats(
         "total_input_tokens": session.total_input_tokens,
         "total_output_tokens": session.total_output_tokens
     }
+
+
+@router.get("/sessions/{session_id}/node-calls", response_model=List[NodeCallLogResponse])
+async def get_node_call_logs(
+    session_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    limit: int = 200
+):
+    """
+    Get per-node LLM call logs for a specific chat session.
+
+    Returns every node invocation (node name, input/output tokens, response time)
+    in chronological order, grouped by turn.
+    """
+    from app.models.node_call_log import NodeCallLog
+    # Verify access
+    ChatService.get_session(db, session_id, current_user)
+    logs = (
+        db.query(NodeCallLog)
+        .filter(NodeCallLog.session_id == session_id)
+        .order_by(NodeCallLog.created_at.asc())
+        .limit(limit)
+        .all()
+    )
+    return logs
