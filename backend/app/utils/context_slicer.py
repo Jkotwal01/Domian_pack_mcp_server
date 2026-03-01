@@ -123,9 +123,9 @@ def format_minimal_context(
         patterns = config.get("extraction_patterns", [])
         entity_types = [e["type"] for e in config.get("entities", [])]
         return json.dumps({
-            "pattern_count": len(patterns),
+            "extraction_patterns": patterns,
             "available_entity_types": entity_types
-        })
+        }, indent=2)
     
     # Key terms operations
     if "key_term" in intent:
@@ -147,11 +147,19 @@ def format_minimal_context(
     md_lines = [f"Domain: {config.get('name')} (v{config.get('version')})", "Entities:"]
     for e in config.get("entities", []):
         attrs = [a["name"] for a in e.get("attributes", [])]
-        md_lines.append(f"- {e['name']} ({e['type']}): {e.get('description', '')}. Configured Attributes: {', '.join(attrs) if attrs else 'None'}")
-        
+        md_lines.append(f"- {e['name']} ({e['type']}): {e.get('description', '')}. Attributes: {', '.join(attrs) if attrs else 'None'}")
+
     md_lines.append("Relationships:")
     for r in config.get("relationships", []):
         md_lines.append(f"- {r['name']} ({r.get('from', '')} -> {r.get('to', '')}): {r.get('description', '')}")
+
+    patterns = config.get("extraction_patterns", [])
+    md_lines.append(f"Extraction Patterns: {len(patterns)} total")
+    for p in patterns:
+        md_lines.append(f"- {p.get('pattern', '')} → {p.get('entity_type', '')} / {p.get('attribute', '')}")
+
+    key_terms = config.get("key_terms", [])
+    md_lines.append(f"Key Terms ({len(key_terms)}): {', '.join(key_terms) if key_terms else 'None'}")
 
     return "\n".join(md_lines)
 

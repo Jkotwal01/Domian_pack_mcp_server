@@ -185,6 +185,7 @@ function AppContent() {
                 {isChatOpen && (
                   <div className="w-1/2 border-l border-slate-200 animate-slideInRight h-full overflow-hidden">
                     <ChatArea 
+                      activeSessionId={activeSessionId}
                       messages={messages} 
                       isTyping={isTyping}
                       uploadingFiles={uploadingFiles}

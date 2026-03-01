@@ -388,18 +388,11 @@ def general_knowledge_node(state: AgentState) -> AgentState:
     Records LLM token usage.
     """
     try:
-        import os
         from langchain_community.callbacks import get_openai_callback
-        kb_path = os.path.join(os.path.dirname(__file__), "knowledge_base.md")
-        kb_content = ""
-        if os.path.exists(kb_path):
-            with open(kb_path, "r", encoding="utf-8") as f:
-                kb_content = f.read()
-
         user_msg = state["messages"][-1].content
         llm = get_llm(temperature=0)
         prompt = GENERAL_KNOWLEDGE_PROMPT.format(
-            context=kb_content or "No additional documentation available.",
+            context="No additional documentation available.",
             user_message=user_msg
         )
         t0 = _time.perf_counter()
@@ -426,6 +419,8 @@ def get_relevant_context(state: AgentState) -> str:
     Extract minimal relevant context based on intent.
 
     This reduces token usage by 85-96% compared to sending full config.
+    For info_query, keyword-sniffing on the user message routes to the
+    correct config slice so the LLM always receives the right data.
     """
     from app.utils.context_slicer import format_minimal_context, extract_target_from_message
 
@@ -434,6 +429,19 @@ def get_relevant_context(state: AgentState) -> str:
 
     # Extract the user's latest message
     user_msg = state["messages"][-1].content
+    user_msg_lower = user_msg.lower()
+
+    # For info_query, route to the appropriate context slice based on keywords
+    if intent == "info_query":
+        if any(kw in user_msg_lower for kw in ("extraction pattern", "pattern", "regex")):
+            intent = "extraction_pattern_operation"
+        elif any(kw in user_msg_lower for kw in ("key term", "key_term", "vocabulary")):
+            intent = "key_term_operation"
+        elif "relationship" in user_msg_lower:
+            intent = "relationship_operation"
+        elif any(kw in user_msg_lower for kw in ("domain name", "domain description", "domain version")):
+            intent = "domain_operation"
+        # else: leave as info_query → full context dump
 
     # Try to extract target name from user message
     target_name = extract_target_from_message(user_msg, config)

@@ -7,6 +7,23 @@ from typing import Dict, Any
 from app.schemas.patch import PatchOperation
 
 
+def _resolve_parent(patch: PatchOperation) -> str:
+    """
+    Resolve the effective parent/entity name from patch fields.
+
+    The LLM sometimes populates `target_name` instead of `parent_name` for
+    nested operations (synonyms, attributes, examples).  This helper checks
+    both fields so those handlers never receive None silently.
+    """
+    name = patch.parent_name or patch.target_name
+    if not name or str(name).strip() in ("", "None"):
+        raise ValueError(
+            "Could not determine the parent entity/relationship name. "
+            "Make sure 'parent_name' is set to the entity or relationship name."
+        )
+    return name
+
+
 def apply_patch(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """
     Main dispatcher for all patch operations.
@@ -367,40 +384,43 @@ def delete_entity_attribute_example(config: Dict[str, Any], patch: PatchOperatio
 
 def add_entity_synonym(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Add synonym to entity."""
+    parent = _resolve_parent(patch)
     for entity in config.get("entities", []):
-        if entity["name"] == patch.parent_name:
+        if entity["name"] == parent:
             if "synonyms" not in entity:
                 entity["synonyms"] = []
             if patch.new_value in entity["synonyms"]:
                 raise ValueError(f"Synonym '{patch.new_value}' already exists")
             entity["synonyms"].append(patch.new_value)
             return config
-    raise ValueError(f"Entity '{patch.parent_name}' not found")
+    raise ValueError(f"Entity '{parent}' not found")
 
 
 def update_entity_synonym(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Update entity synonym."""
+    parent = _resolve_parent(patch)
     for entity in config.get("entities", []):
-        if entity["name"] == patch.parent_name:
+        if entity["name"] == parent:
             synonyms = entity.get("synonyms", [])
             if patch.old_value in synonyms:
                 idx = synonyms.index(patch.old_value)
                 synonyms[idx] = patch.new_value
                 return config
             raise ValueError(f"Synonym '{patch.old_value}' not found")
-    raise ValueError(f"Entity '{patch.parent_name}' not found")
+    raise ValueError(f"Entity '{parent}' not found")
 
 
 def delete_entity_synonym(config: Dict[str, Any], patch: PatchOperation) -> Dict[str, Any]:
     """Delete synonym from entity."""
+    parent = _resolve_parent(patch)
     for entity in config.get("entities", []):
-        if entity["name"] == patch.parent_name:
+        if entity["name"] == parent:
             entity["synonyms"] = [
                 s for s in entity.get("synonyms", []) 
                 if s != patch.old_value
             ]
             return config
-    raise ValueError(f"Entity '{patch.parent_name}' not found")
+    raise ValueError(f"Entity '{parent}' not found")
 
 
 # ============================================================================

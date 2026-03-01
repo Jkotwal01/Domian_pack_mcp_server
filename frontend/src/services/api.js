@@ -287,14 +287,6 @@ export async function checkHealth() {
 /**
  * STATS (LLM Session Stats)
  */
-export async function getSessionStats(sessionId) {
-  try {
-    return await apiFetch(`/chat/sessions/${sessionId}/stats`);
-  } catch (error) {
-    return { error: error.message };
-  }
-}
-
 export async function getNodeCallLogs(sessionId) {
   try {
     return await apiFetch(`/chat/sessions/${sessionId}/node-calls`);
